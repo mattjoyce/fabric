@@ -3,11 +3,13 @@ package core
 import (
 	"context"
 	"fmt"
+	"strings"
+
+	goopenai "github.com/sashabaranov/go-openai"
+
 	"github.com/danielmiessler/fabric/common"
 	"github.com/danielmiessler/fabric/plugins/ai"
 	"github.com/danielmiessler/fabric/plugins/db/fsdb"
-	goopenai "github.com/sashabaranov/go-openai"
-	"strings"
 )
 
 const NoSessionPatternUserMessages = "no session, pattern or user messages provided"
@@ -18,8 +20,9 @@ type Chatter struct {
 	Stream bool
 	DryRun bool
 
-	model  string
-	vendor ai.Vendor
+	model              string
+	modelContextLength int
+	vendor             ai.Vendor
 }
 
 func (o *Chatter) Send(request *common.ChatRequest, opts *common.ChatOptions) (session *fsdb.Session, err error) {
@@ -29,6 +32,10 @@ func (o *Chatter) Send(request *common.ChatRequest, opts *common.ChatOptions) (s
 
 	if opts.Model == "" {
 		opts.Model = o.model
+	}
+
+	if opts.ModelContextLength == 0 {
+		opts.ModelContextLength = o.modelContextLength
 	}
 
 	message := ""
@@ -57,7 +64,7 @@ func (o *Chatter) Send(request *common.ChatRequest, opts *common.ChatOptions) (s
 		return
 	}
 
-	session.Append(&common.Message{Role: goopenai.ChatMessageRoleAssistant, Content: message})
+	session.Append(&goopenai.ChatCompletionMessage{Role: goopenai.ChatMessageRoleAssistant, Content: message})
 
 	if session.Name != "" {
 		err = o.db.Sessions.SaveSession(session)
@@ -78,7 +85,7 @@ func (o *Chatter) BuildSession(request *common.ChatRequest, raw bool) (session *
 	}
 
 	if request.Meta != "" {
-		session.Append(&common.Message{Role: common.ChatMessageRoleMeta, Content: request.Meta})
+		session.Append(&goopenai.ChatCompletionMessage{Role: common.ChatMessageRoleMeta, Content: request.Meta})
 	}
 
 	var contextContent string
@@ -108,21 +115,25 @@ func (o *Chatter) BuildSession(request *common.ChatRequest, raw bool) (session *
 	if request.Language != "" {
 		systemMessage = fmt.Sprintf("%s. Please use the language '%s' for the output.", systemMessage, request.Language)
 	}
-	userMessage := strings.TrimSpace(request.Message)
 
 	if raw {
-		// use the user role instead of the system role in raw mode
-		message := systemMessage + userMessage
-		if message != "" {
-			session.Append(&common.Message{Role: goopenai.ChatMessageRoleUser, Content: message})
+		if request.Message != nil {
+			if systemMessage != "" {
+				request.Message.Content = systemMessage + request.Message.Content
+			}
+		} else {
+			if systemMessage != "" {
+				request.Message = &goopenai.ChatCompletionMessage{Role: goopenai.ChatMessageRoleSystem, Content: systemMessage}
+			}
 		}
 	} else {
 		if systemMessage != "" {
-			session.Append(&common.Message{Role: goopenai.ChatMessageRoleSystem, Content: systemMessage})
+			session.Append(&goopenai.ChatCompletionMessage{Role: goopenai.ChatMessageRoleSystem, Content: systemMessage})
 		}
-		if userMessage != "" {
-			session.Append(&common.Message{Role: goopenai.ChatMessageRoleUser, Content: userMessage})
-		}
+	}
+
+	if request.Message != nil {
+		session.Append(request.Message)
 	}
 
 	if session.IsEmpty() {

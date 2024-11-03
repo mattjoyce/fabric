@@ -2,15 +2,17 @@ package cli
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+
+	"github.com/danielmiessler/fabric/common"
 	"github.com/danielmiessler/fabric/core"
 	"github.com/danielmiessler/fabric/plugins/ai"
 	"github.com/danielmiessler/fabric/plugins/db/fsdb"
 	"github.com/danielmiessler/fabric/plugins/tools/converter"
 	"github.com/danielmiessler/fabric/restapi"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
 )
 
 // Cli Controls the cli. It takes in the flags and runs the appropriate functions
@@ -133,6 +135,8 @@ func Cli(version string) (err error) {
 
 	// if none of the above currentFlags are set, run the initiate chat function
 
+	var messageTools string
+
 	if currentFlags.YouTube != "" {
 		if registry.YouTube.IsConfigured() == false {
 			err = fmt.Errorf("YouTube is not configured, please run the setup procedure")
@@ -157,8 +161,7 @@ func Cli(version string) (err error) {
 			if transcript, err = registry.YouTube.GrabTranscript(videoId, language); err != nil {
 				return
 			}
-
-			currentFlags.AppendMessage(transcript)
+			messageTools = AppendMessage(messageTools, transcript)
 		}
 
 		if currentFlags.YouTubeComments {
@@ -169,12 +172,11 @@ func Cli(version string) (err error) {
 
 			commentsString := strings.Join(comments, "\n")
 
-			currentFlags.AppendMessage(commentsString)
+			messageTools = AppendMessage(messageTools, commentsString)
 		}
 
 		if !currentFlags.IsChatRequest() {
-			// if the pattern flag is not set, we wanted only to grab the transcript or comments
-			fmt.Println(currentFlags.Message)
+			err = currentFlags.WriteOutput(messageTools)
 			return
 		}
 	}
@@ -186,8 +188,7 @@ func Cli(version string) (err error) {
 			if website, err = registry.Jina.ScrapeURL(currentFlags.ScrapeURL); err != nil {
 				return
 			}
-
-			currentFlags.AppendMessage(website)
+			messageTools = AppendMessage(messageTools, website)
 		}
 
 		// Check if the scrape_question flag is set and call ScrapeQuestion
@@ -197,23 +198,30 @@ func Cli(version string) (err error) {
 				return
 			}
 
-			currentFlags.AppendMessage(website)
+			messageTools = AppendMessage(messageTools, website)
 		}
 
 		if !currentFlags.IsChatRequest() {
-			// if the pattern flag is not set, we wanted only to grab the url or get the answer to the question
-			fmt.Println(currentFlags.Message)
+			err = currentFlags.WriteOutput(messageTools)
 			return
 		}
 	}
 
+	if messageTools != "" {
+		currentFlags.AppendMessage(messageTools)
+	}
+
 	var chatter *core.Chatter
-	if chatter, err = registry.GetChatter(currentFlags.Model, currentFlags.Stream, currentFlags.DryRun); err != nil {
+	if chatter, err = registry.GetChatter(currentFlags.Model, currentFlags.ModelContextLength, currentFlags.Stream, currentFlags.DryRun); err != nil {
 		return
 	}
 
 	var session *fsdb.Session
-	chatReq := currentFlags.BuildChatRequest(strings.Join(os.Args[1:], " "))
+	var chatReq *common.ChatRequest
+	if chatReq, err = currentFlags.BuildChatRequest(strings.Join(os.Args[1:], " ")); err != nil {
+		return
+	}
+
 	if chatReq.Language == "" {
 		chatReq.Language = registry.Language.DefaultLanguage.Value
 	}
