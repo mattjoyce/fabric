@@ -67,7 +67,7 @@ func (o *PatternsEntity) applyVariables(
 		if !strings.HasSuffix(pattern.Pattern, "\n") {
 			pattern.Pattern += "\n"
 		}
-		pattern.Pattern += "{{input}}"
+		//pattern.Pattern += "{{input}}"
 	}
 
 	// Temporarily replace {{input}} with a sentinel token to protect it

@@ -202,17 +202,22 @@ func (o *Chatter) BuildSession(request *common.ChatRequest, raw bool) (session *
 				// If no user message, create one with the system content, marked as User role
 				request.Message = &goopenai.ChatCompletionMessage{Role: goopenai.ChatMessageRoleUser, Content: systemMessage}
 			}
+			session.Append(request.Message)
 		} // else: no system message, user message (if any) remains unchanged
 	} else {
 		// Not raw mode, append system message separately if it exists
 		if systemMessage != "" {
 			session.Append(&goopenai.ChatCompletionMessage{Role: goopenai.ChatMessageRoleSystem, Content: systemMessage})
+			if request.Message != nil {
+				session.Append(request.Message)
+			}
 		}
 	}
 
-	if request.Message != nil {
-		session.Append(request.Message)
-	}
+	// if request.Message != nil {
+	// 	session.Append(request.Message)
+	// }
+	//
 
 	if session.IsEmpty() {
 		session = nil
