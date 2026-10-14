@@ -1,4 +1,0 @@
-### PR [#2267](https://github.com/danielmiessler/Fabric/pull/2267) by [T145](https://github.com/T145): feat: add WebWright as an OpenAI-compatible provider
-
-- Added WebWright as an OpenAI-compatible provider.
-- Added a changelog entry documenting the new WebWright provider.
