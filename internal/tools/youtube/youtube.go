@@ -478,9 +478,6 @@ func parseFFmpegFrameTimes(logOutput string) []float64 {
 	matches := ffmpegPtsTimeRegex.FindAllStringSubmatch(logOutput, -1)
 	frameTimes := make([]float64, 0, len(matches))
 	for _, match := range matches {
-		if len(match) < 2 {
-			continue
-		}
 		frameTime, err := strconv.ParseFloat(match[1], 64)
 		if err != nil {
 			continue
@@ -491,15 +488,8 @@ func parseFFmpegFrameTimes(logOutput string) []float64 {
 }
 
 func formatCueTimestamp(seconds float64) string {
-	if seconds < 0 {
-		seconds = 0
-	}
 	totalMilliseconds := int(seconds*1000 + 0.5)
-	hours := totalMilliseconds / 3_600_000
-	minutes := (totalMilliseconds % 3_600_000) / 60_000
-	secs := (totalMilliseconds % 60_000) / 1000
-	milliseconds := totalMilliseconds % 1000
-	return fmt.Sprintf("%02d:%02d:%02d.%03d", hours, minutes, secs, milliseconds)
+	return time.Time{}.Add(time.Duration(totalMilliseconds) * time.Millisecond).Format("15:04:05.000")
 }
 
 func visualCueRange(frameTimes []float64, index int) (string, string) {
