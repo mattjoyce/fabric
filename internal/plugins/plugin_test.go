@@ -297,25 +297,6 @@ func captureInput(input string) func() {
 	}
 }
 
-func TestSetupQuestion_Ask_CarriageReturn(t *testing.T) {
-	// Test that \r (carriage return) alone is accepted as line ending.
-	// Some terminals (kitty, macOS default) send \r instead of \n on Enter.
-	setting := &Setting{
-		EnvVariable: "TEST_CR_SETTING",
-		Required:    true,
-	}
-	question := &SetupQuestion{
-		Setting:  setting,
-		Question: "Enter test setting:",
-	}
-	input := "user_value\r"
-	fmtInput := captureInput(input)
-	defer fmtInput()
-	err := question.Ask("TestConfigurable")
-	assert.NoError(t, err)
-	assert.Equal(t, "user_value", setting.Value)
-}
-
 func TestSetupQuestion_Ask_EmptyCarriageReturn(t *testing.T) {
 	// Test that pressing Enter (\r) with a default value uses the default.
 	setting := &Setting{
@@ -335,50 +316,38 @@ func TestSetupQuestion_Ask_EmptyCarriageReturn(t *testing.T) {
 	assert.Equal(t, "default_value", setting.Value)
 }
 
-func TestReadLine_KeepsBufferedInputBetweenCalls(t *testing.T) {
-	// bufio.Reader reads ahead, so a reader created per call drops the lines
-	// that are already sitting in its buffer. Scripted input such as
-	// `printf 'a\nb\n' | fabric --setup` would answer the second question with
-	// an empty line.
-	restore := captureInput("first\nsecond\n")
-	defer restore()
+func TestReadLine_LineEndings(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  []string
+	}{
+		{
+			name:  "LF line endings",
+			input: "first\nsecond\n",
+			want:  []string{"first", "second"},
+		},
+		{
+			name:  "CRLF line endings",
+			input: "first\r\nsecond\r\n",
+			want:  []string{"first", "second"},
+		},
+		{
+			name:  "CR line endings",
+			input: "first\rsecond\r",
+			want:  []string{"first", "second"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			restore := captureInput(tt.input)
+			defer restore()
 
-	first, err := readLine()
-	assert.NoError(t, err)
-	assert.Equal(t, "first", first)
-
-	second, err := readLine()
-	assert.NoError(t, err)
-	assert.Equal(t, "second", second)
-}
-
-func TestReadLine_CRLFEndingDoesNotBecomeEmptyLine(t *testing.T) {
-	// Windows-style input sends \r\n. After \r ends the line, the following \n
-	// must not be returned as an empty answer at the next prompt.
-	restore := captureInput("first\r\nsecond\r\n")
-	defer restore()
-
-	first, err := readLine()
-	assert.NoError(t, err)
-	assert.Equal(t, "first", first)
-
-	second, err := readLine()
-	assert.NoError(t, err)
-	assert.Equal(t, "second", second)
-}
-
-func TestSetupQuestion_Ask_ScriptedInputAnswersBothQuestions(t *testing.T) {
-	restore := captureInput("first_value\nsecond_value\n")
-	defer restore()
-
-	first := &Setting{EnvVariable: "TEST_SCRIPTED_ONE", Required: true}
-	second := &Setting{EnvVariable: "TEST_SCRIPTED_TWO", Required: true}
-
-	_ = captureOutput(func() {
-		assert.NoError(t, (&SetupQuestion{Setting: first, Question: "First:"}).Ask("Test"))
-		assert.NoError(t, (&SetupQuestion{Setting: second, Question: "Second:"}).Ask("Test"))
-	})
-
-	assert.Equal(t, "first_value", first.Value)
-	assert.Equal(t, "second_value", second.Value)
+			for _, want := range tt.want {
+				got, err := readLine()
+				assert.NoError(t, err)
+				assert.Equal(t, want, got)
+			}
+		})
+	}
 }

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"sync"
 
 	"github.com/danielmiessler/fabric/internal/i18n"
 )
@@ -227,9 +226,7 @@ func (o *SetupQuestion) Ask(label string) (err error) {
 	} else {
 		fmt.Printf(i18n.T("plugin_question_optional"), prefix, o.Question)
 	}
-	var answer string
-	answer, _ = readLine()
-	answer = strings.TrimRight(answer, "\n")
+	answer, _ := readLine()
 	isReset := strings.ToLower(answer) == AnswerReset
 	if answer == "" {
 		answer = o.Value
@@ -357,14 +354,11 @@ func BuildEnvVariable(name string) string {
 // The reader is rebuilt when os.Stdin changes, which keeps redirected input
 // working for callers that swap the file.
 var (
-	stdinMu     sync.Mutex
 	stdinReader *bufio.Reader
 	stdinSource *os.File
 )
 
 func stdinLineReader() *bufio.Reader {
-	stdinMu.Lock()
-	defer stdinMu.Unlock()
 	if stdinReader == nil || stdinSource != os.Stdin {
 		stdinReader = bufio.NewReader(os.Stdin)
 		stdinSource = os.Stdin
