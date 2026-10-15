@@ -79,6 +79,38 @@ func TestParseFFmpegFrameTimes(t *testing.T) {
 	}
 }
 
+func TestParseFFmpegFrameTimes_ShowinfoLinesOnly(t *testing.T) {
+	logOutput := `
+    title           : pts_time:99
+[Parsed_showinfo_1 @ 0x1] n:   0 pts:    -40 pts_time:-0.04
+[Parsed_showinfo_1 @ 0x1] n:   1 pts:    460 pts_time:0.46
+`
+
+	frameTimes := parseFFmpegFrameTimes(logOutput)
+	if len(frameTimes) != 2 || frameTimes[0] != -0.04 || frameTimes[1] != 0.46 {
+		t.Fatalf("unexpected frame times: %#v", frameTimes)
+	}
+	if got := parseFFmpegFrameTimes(""); len(got) != 0 {
+		t.Fatalf("expected no frame times for empty input, got %#v", got)
+	}
+}
+
+func TestFormatCueTimestamp(t *testing.T) {
+	tests := map[float64]string{
+		-0.04:     "00:00:00.000",
+		0:         "00:00:00.000",
+		0.4995:    "00:00:00.500",
+		3599.9996: "01:00:00.000",
+		3600:      "01:00:00.000",
+		90061.5:   "25:01:01.500",
+	}
+	for seconds, want := range tests {
+		if got := formatCueTimestamp(seconds); got != want {
+			t.Errorf("formatCueTimestamp(%v) = %s, want %s", seconds, got, want)
+		}
+	}
+}
+
 func TestVisualCueRange_UsesActualFrameTimes(t *testing.T) {
 	frameTimes := []float64{0, 0.5, 2.5}
 
@@ -121,5 +153,25 @@ func TestGrabVisual_UsesFrameTimesFromFFmpeg(t *testing.T) {
 	}
 	if !strings.Contains(got, "Second frame text") {
 		t.Fatalf("expected second frame OCR text in output, got %q", got)
+	}
+}
+
+func TestGrabVisual_FrameTimeCountMismatchUsesIndex(t *testing.T) {
+	binDir := t.TempDir()
+	writeExecutable(t, binDir, "yt-dlp", "#!/usr/bin/env bash\necho 'http://example.invalid/video'\n")
+	writeExecutable(t, binDir, "ffmpeg", "#!/usr/bin/env bash\nout=\"${@: -1}\"\nfor n in 0001 0002 0003; do touch \"${out//%04d/$n}\"; done\necho '[Parsed_showinfo_1 @ 0x1] n:   0 pts:      0 pts_time:0' >&2\necho '[Parsed_showinfo_1 @ 0x1] n:   1 pts:  10000 pts_time:10' >&2\n")
+	writeExecutable(t, binDir, "tesseract", "#!/usr/bin/env bash\necho \"Text for frame $(basename \"$1\")\"\n")
+
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	got, err := NewYouTube().GrabVisual("video123", "en", "", 0.4, 2)
+	if err != nil {
+		t.Fatalf("GrabVisual returned error: %v", err)
+	}
+
+	for _, cue := range []string{"00:00:00.000 --> 00:00:00.999", "00:00:01.000 --> 00:00:01.999", "00:00:02.000 --> 00:00:02.999"} {
+		if !strings.Contains(got, cue) {
+			t.Fatalf("expected index cue %q, got %q", cue, got)
+		}
 	}
 }

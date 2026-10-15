@@ -61,7 +61,8 @@ func init() {
 	vttTagRegex = regexp.MustCompile(`<[^>]*>`)
 	// ISO 8601 duration from the Data API, such as PT1H2M3S.
 	durationRegex = regexp.MustCompile(`(?i)PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?`)
-	ffmpegPtsTimeRegex = regexp.MustCompile(`pts_time:([0-9]+(?:\.[0-9]+)?)`)
+	// Frame time on an ffmpeg showinfo line. ParseFloat checks the value.
+	ffmpegPtsTimeRegex = regexp.MustCompile(`Parsed_showinfo[^\n]*\bpts_time:(\S+)`)
 }
 
 func NewYouTube() (ret *YouTube) {
@@ -488,8 +489,8 @@ func parseFFmpegFrameTimes(logOutput string) []float64 {
 }
 
 func formatCueTimestamp(seconds float64) string {
-	totalMilliseconds := int(seconds*1000 + 0.5)
-	return time.Time{}.Add(time.Duration(totalMilliseconds) * time.Millisecond).Format("15:04:05.000")
+	ms := int(max(seconds, 0)*1000 + 0.5)
+	return fmt.Sprintf("%02d:%02d:%02d.%03d", ms/3600000, ms/60000%60, ms/1000%60, ms%1000)
 }
 
 func visualCueRange(frameTimes []float64, index int) (string, string) {
@@ -925,6 +926,11 @@ func (o *YouTube) GrabVisual(videoId string, language string, additionalArgs str
 	files, err := filepath.Glob(filepath.Join(tempDir, "frame_*.jpg"))
 	if err != nil {
 		return "", err
+	}
+	// Use the frame times only when each frame file has one time. If not, use the frame index for all cues.
+	if len(frameTimes) != len(files) {
+		debuglog.Debug(debuglog.Detailed, "ffmpeg gave %d frame times for %d frames; using frame index\n", len(frameTimes), len(files))
+		frameTimes = nil
 	}
 
 	var wg sync.WaitGroup
