@@ -562,17 +562,27 @@ func (c *BedrockClient) Send(ctx context.Context, msgs []*chat.ChatCompletionMes
 		return "", fmt.Errorf(i18n.T("bedrock_unexpected_response_type"), response.Output)
 	}
 
-	if len(responseText.Value.Content) == 0 {
+	return responseTextFromContent(responseText.Value.Content)
+}
+
+func responseTextFromContent(content []types.ContentBlock) (string, error) {
+	if len(content) == 0 {
 		return "", errors.New(i18n.T("bedrock_empty_response_content"))
 	}
 
-	responseContentBlock := responseText.Value.Content[0]
-	text, ok := responseContentBlock.(*types.ContentBlockMemberText)
-	if !ok {
-		return "", fmt.Errorf(i18n.T("bedrock_unexpected_content_block_type"), responseContentBlock)
+	for _, contentBlock := range content {
+		switch block := contentBlock.(type) {
+		case *types.ContentBlockMemberReasoningContent:
+			continue
+		case *types.ContentBlockMemberText:
+			return block.Value, nil
+		default:
+			return "", fmt.Errorf(i18n.T("bedrock_unexpected_content_block_type"), contentBlock)
+		}
 	}
 
-	return text.Value, nil
+	// The response contained reasoning, but no user-facing text.
+	return "", errors.New(i18n.T("bedrock_empty_response_content"))
 }
 
 // toMessages converts chat messages to Bedrock Converse messages. System
