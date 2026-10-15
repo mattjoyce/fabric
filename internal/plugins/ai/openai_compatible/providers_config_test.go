@@ -73,6 +73,11 @@ func TestCreateClient(t *testing.T) {
 			exists:   true,
 		},
 		{
+			name:     "Existing provider - onomeo",
+			provider: "onomeo",
+			exists:   true,
+		},
+		{
 			name:     "Existing provider - FuturMix",
 			provider: "FuturMix",
 			exists:   true,
@@ -105,6 +110,11 @@ func TestCreateClient(t *testing.T) {
 		{
 			name:     "Existing provider - Opper",
 			provider: "Opper",
+			exists:   true,
+		},
+		{
+			name:     "Existing provider - WebWright",
+			provider: "WebWright",
 			exists:   true,
 		},
 		{

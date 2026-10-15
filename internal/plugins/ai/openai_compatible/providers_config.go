@@ -354,6 +354,11 @@ var ProviderMap = map[string]ProviderConfig{
 		BaseURL:             "https://api.novita.ai/openai/v1",
 		ImplementsResponses: false,
 	},
+	"onomeo": {
+		Name:                "onomeo",
+		BaseURL:             "https://onomeo.com/v1",
+		ImplementsResponses: false,
+	},
 	"OpenCode Go": {
 		Name:                "OpenCode Go",
 		BaseURL:             "https://opencode.ai/zen/go/v1",
@@ -416,6 +421,11 @@ var ProviderMap = map[string]ProviderConfig{
 	"Venice AI": {
 		Name:                "Venice AI",
 		BaseURL:             "https://api.venice.ai/api/v1",
+		ImplementsResponses: false,
+	},
+	"WebWright": {
+		Name:                "WebWright",
+		BaseURL:             "https://webwright.ai/v1",
 		ImplementsResponses: false,
 	},
 	"Y-API": {

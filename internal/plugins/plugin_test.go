@@ -295,3 +295,58 @@ func captureInput(input string) func() {
 		os.Stdin = stdin
 	}
 }
+
+func TestSetupQuestion_Ask_EmptyCarriageReturn(t *testing.T) {
+	// Test that pressing Enter (\r) with a default value uses the default.
+	setting := &Setting{
+		EnvVariable: "TEST_CR_DEFAULT",
+		Value:       "default_value",
+		Required:    true,
+	}
+	question := &SetupQuestion{
+		Setting:  setting,
+		Question: "Enter test setting:",
+	}
+	input := "\r"
+	fmtInput := captureInput(input)
+	defer fmtInput()
+	err := question.Ask("TestConfigurable")
+	assert.NoError(t, err)
+	assert.Equal(t, "default_value", setting.Value)
+}
+
+func TestReadLine_LineEndings(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  []string
+	}{
+		{
+			name:  "LF line endings",
+			input: "first\nsecond\n",
+			want:  []string{"first", "second"},
+		},
+		{
+			name:  "CRLF line endings",
+			input: "first\r\nsecond\r\n",
+			want:  []string{"first", "second"},
+		},
+		{
+			name:  "CR line endings",
+			input: "first\rsecond\r",
+			want:  []string{"first", "second"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			restore := captureInput(tt.input)
+			defer restore()
+
+			for _, want := range tt.want {
+				got, err := readLine()
+				assert.NoError(t, err)
+				assert.Equal(t, want, got)
+			}
+		})
+	}
+}

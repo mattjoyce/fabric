@@ -1,5 +1,52 @@
 # Changelog
 
+## v1.4.521 (2026-10-15)
+
+### PR [#2141](https://github.com/danielmiessler/Fabric/pull/2141) by [putramkti](https://github.com/putramkti) and [ksylvan](https://github.com/ksylvan): fix: handle carriage return input in interactive setup prompts
+
+- Fixed interactive setup hanging when terminals (such as kitty on macOS) send a bare carriage return instead of a newline; prompts now accept Enter reliably.
+- Added a `readLine` helper that terminates on either `\r` or `\n`, strips the `\n` from `\r\n` pairs, and shares a single `bufio.Reader` so buffered input is not lost between questions.
+- Simplified plugin input handling by removing redundant newline trimming from setup question answers.
+- Removed mutex locking from the shared standard input reader initialization.
+- Consolidated line-ending tests into table-driven LF, CRLF, and CR cases, replacing the standalone carriage-return and scripted setup question tests.
+
+## v1.4.520 (2026-10-15)
+
+### PR [#2101](https://github.com/danielmiessler/Fabric/pull/2101) by [shaun0927](https://github.com/shaun0927) and [ksylvan](https://github.com/ksylvan): fix(youtube): preserve ffmpeg frame timing in visual OCR cues
+
+- Fixes YouTube visual OCR cues so timestamps come from real ffmpeg frame timing instead of the OCR result index.
+- Parses `pts_time` from ffmpeg `showinfo` output and formats cue ranges from actual frame times, with a safe fallback.
+- Adds regression coverage for the timestamp parser, cue-range helper, and the end-to-end visual extraction path.
+
+## v1.4.519 (2026-10-14)
+
+### PR [#2266](https://github.com/danielmiessler/Fabric/pull/2266) by [jayervilha](https://github.com/jayervilha): fix: remove zero-width spaces and BOMs from write_nuclei_template_rule pattern
+
+- Removed 53 zero-width spaces (U+200B) and 5 byte order marks (U+FEFF) from the `write_nuclei_template_rule` pattern; no other content changed.
+- Restored 10 code fences that a leading zero-width space had stopped CommonMark from recognising.
+
+### PR [#2267](https://github.com/danielmiessler/Fabric/pull/2267) by [T145](https://github.com/T145): feat: add WebWright as an OpenAI-compatible provider
+
+- Added WebWright as an OpenAI-compatible provider.
+- Added a changelog entry documenting the new WebWright provider.
+
+## v1.4.518 (2026-10-10)
+
+### PR [#2265](https://github.com/danielmiessler/Fabric/pull/2265) by [Owaid0723666](https://github.com/Owaid0723666): feat: add onomeo as an OpenAI-compatible provider
+
+- Added onomeo as an OpenAI-compatible provider, registered in the ProviderMap with the base URL `https://onomeo.com/v1`.
+- Added a matching `TestCreateClient` test case.
+
+## v1.4.517 (2026-10-10)
+
+### PR [#2263](https://github.com/danielmiessler/Fabric/pull/2263) by [aldoyh](https://github.com/aldoyh) and [ksylvan](https://github.com/ksylvan): Add Arabic localization file with application options and commands
+
+- Added an Arabic localization file covering application options and commands.
+- Expanded Bahrain Arabic translations across the CLI, setup flow, and error messages.
+- Added Saudi Arabic translations that match the Bahrain locale coverage.
+- Removed generic Arabic translations in favor of a regional fallback strategy, with tests for locale candidate resolution and the default Bahrain fallback order.
+- Refactored the code structure for improved readability and maintainability.
+
 ## v1.4.516 (2026-10-07)
 
 ### PR [#2261](https://github.com/danielmiessler/Fabric/pull/2261) by [ksylvan](https://github.com/ksylvan): fix: harden REST server, template engine and plugins
