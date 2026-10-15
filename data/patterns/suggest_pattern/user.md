@@ -70,6 +70,10 @@ Enhance AI prompts by refining clarity and specificity.
 
 Evaluate AI outputs for quality and accuracy.
 
+### judge_ultimate_law
+
+Derive Ultimate Law verdicts step by step through an executable rulebook of If/then rules and integrity constraints, with derivation chains and the facts that would flip each verdict.
+
 ### rate_ai_response
 
 Evaluate AI responses for quality and effectiveness.
@@ -135,6 +139,10 @@ Examine battles analyzing strategic decisions to extract military lessons.
 ### analyze_mistakes
 
 Analyze past errors to prevent similar mistakes in predictions/decisions.
+
+### analyze_monetization_opportunities
+
+Identify affiliate, sponsorship, digital product, and community revenue opportunities in creator content aligned with audience intent.
 
 ### analyze_paper
 
@@ -211,6 +219,14 @@ Review contract to identify stipulations, issues, and changes for negotiation.
 ### check_falsifiability
 
 Evaluate whether claims, definitions, and arguments are falsifiable and can be proven wrong.
+
+### chinese_contract_review
+
+Review Chinese contracts under PRC Civil Code for legal risks and missing clauses.
+
+### chinese_poetry_analysis
+
+Analyze classical Chinese poetry for imagery, meter, allusions and literary context.
 
 ### compare_and_contrast
 
@@ -340,6 +356,18 @@ Extract/analyze user job stories to understand motivations.
 
 Categorize/evaluate content by assigning labels and ratings.
 
+### lens_deconstructive
+
+Read texts deconstructively to expose binaries, absences and self-contradictions.
+
+### lens_rhetorical
+
+Analyze how texts persuade through ethos, pathos, logos and kairos.
+
+### lens_stoic
+
+Read texts philosophically to trace intellectual lineage, tensions and unasked questions.
+
 ### model_as_sherlock_freud
 
 Builds psychological models using detective reasoning and psychoanalytic insight.
@@ -442,6 +470,10 @@ Extract world model updates/algorithms to improve decision-making.
 
 Organize video content into timestamped chapters highlighting key topics.
 
+### extract_affiliate_products
+
+Extract commercial products, tools, and brands from transcripts, separating sponsored from organic mentions with commission tier estimates.
+
 ### extract_algorithm_update_recommendations
 
 Extract recommendations for improving algorithms, focusing on steps.
@@ -538,6 +570,10 @@ Extract/classify hard/soft skills from job descriptions into skill inventory.
 
 Extract/organize sponsorship info, including names and messages.
 
+### extract_video_commerce_entities
+
+Identify every commercially relevant entity in a video transcript — products, tools, brands, services — with category, mention type, and purchase likelihood.
+
 ### extract_videoid
 
 Extract/parse video IDs and URLs to create video lists.
@@ -571,6 +607,10 @@ Extract panel topics to create engaging discussions.
 ### capture_thinkers_work
 
 Extract key concepts, background, and ideas from notable thinkers' work.
+
+### chinese_article_summary
+
+Summarize long Chinese articles into concise, objective Chinese summaries.
 
 ### create_5_sentence_summary
 
@@ -690,6 +730,10 @@ Create glossaries of advanced terms with definitions and analogies.
 
 Proofreads and corrects typos, spelling, grammar, and punctuation errors.
 
+### generate_frontmatter
+
+Generate YAML frontmatter with tags, aliases and summary for PKM notes.
+
 ### humanize
 
 Transform technical content into approachable language.
@@ -755,6 +799,10 @@ Generate appropriate responses to technical interview questions.
 ### ask_uncle_duke
 
 Expert software dev. guidance focusing on Java, Spring, frontend, and best practices.
+
+### chinese_code_review
+
+Review code for correctness, security and performance, with feedback in Chinese.
 
 ### create_bd_issue
 
@@ -968,6 +1016,10 @@ Analyze Discord server structures for organizational issues, permissions, and op
 
 Create compelling business offers using Alex Hormozi's methodology.
 
+### eisenhower_matrix
+
+Sort tasks into Eisenhower quadrants by urgency and importance, then make a weekly focus plan.
+
 ### extract_business_ideas
 
 Identify business opportunities and insights
@@ -1053,6 +1105,10 @@ Transform concepts to ASCII art with explanations of relationships.
 Visualize missions and goals to clarify relationships.
 
 ## CONVERSION PATTERNS
+
+### chinese_news_translate
+
+Translate English news articles into natural, journalistic Chinese.
 
 ### convert_to_markdown
 

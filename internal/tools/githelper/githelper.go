@@ -33,18 +33,15 @@ type FetchOptions struct {
 // FetchFilesFromRepo clones a git repo and extracts files from a specific folder.
 // It tries go-git first, and falls back to the git CLI if available.
 func FetchFilesFromRepo(opts FetchOptions) error {
-	// Ensure path prefix ends with slash
 	if !strings.HasSuffix(opts.PathPrefix, "/") {
 		opts.PathPrefix = opts.PathPrefix + "/"
 	}
 
-	// Try go-git first (in-memory clone)
 	goGitErr := fetchFilesViaGoGit(opts)
 	if goGitErr == nil {
 		return nil
 	}
 
-	// go-git failed; try git CLI fallback if available
 	if _, lookErr := exec.LookPath("git"); lookErr != nil {
 		return goGitErr
 	}
@@ -122,8 +119,8 @@ func fetchFilesViaGoGit(opts FetchOptions) error {
 	})
 }
 
-// fetchFilesViaGitCLI clones a repo using the git CLI binary and extracts files.
-// This serves as a fallback when go-git fails (e.g., DNS resolution issues on Termux).
+// fetchFilesViaGitCLI clones a repo with the git binary and extracts files.
+// It is the fallback when go-git fails, for example from DNS errors on Termux.
 func fetchFilesViaGitCLI(opts FetchOptions) error {
 	tmpDir, err := os.MkdirTemp("", "fabric-git-clone-*")
 	if err != nil {
@@ -131,12 +128,11 @@ func fetchFilesViaGitCLI(opts FetchOptions) error {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	cmd := exec.Command("git", "clone", "--depth", "1", opts.RepoURL, tmpDir)
+	cmd := exec.Command("git", "clone", "--depth", "1", "--", opts.RepoURL, tmpDir)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf(i18n.T("githelper_failed_git_cli_clone"), err, string(output))
 	}
 
-	// Source directory within the clone (trim trailing slash for filepath.Join)
 	srcDir := filepath.Join(tmpDir, strings.TrimSuffix(opts.PathPrefix, "/"))
 
 	if err := os.MkdirAll(opts.DestDir, 0755); err != nil {
@@ -148,6 +144,13 @@ func fetchFilesViaGitCLI(opts FetchOptions) error {
 			return err
 		}
 		if d.IsDir() {
+			return nil
+		}
+
+		// Skip symlinks and other non-regular files. A symlink in the
+		// repository can point to a file outside the clone. copyFile opens
+		// the source, so it would copy that file into the patterns folder.
+		if !d.Type().IsRegular() {
 			return nil
 		}
 
@@ -173,6 +176,14 @@ func fetchFilesViaGitCLI(opts FetchOptions) error {
 }
 
 func copyFile(src, dst string) error {
+	// Refuse a source that is not a regular file. This is a second check
+	// after the walk, so that copyFile never follows a symlink.
+	if info, err := os.Lstat(src); err != nil {
+		return err
+	} else if !info.Mode().IsRegular() {
+		return fmt.Errorf(i18n.T("githelper_skip_non_regular_file"), src)
+	}
+
 	srcFile, err := os.Open(src)
 	if err != nil {
 		return err

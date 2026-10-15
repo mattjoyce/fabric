@@ -1,19 +1,728 @@
 # Changelog
 
-## v1.4.448 (2026-04-17)
+## v1.4.519 (2026-10-14)
+
+### PR [#2266](https://github.com/danielmiessler/Fabric/pull/2266) by [jayervilha](https://github.com/jayervilha): fix: remove zero-width spaces and BOMs from write_nuclei_template_rule pattern
+
+- Removed 53 zero-width spaces (U+200B) and 5 byte order marks (U+FEFF) from the `write_nuclei_template_rule` pattern; no other content changed.
+- Restored 10 code fences that a leading zero-width space had stopped CommonMark from recognising.
+
+### PR [#2267](https://github.com/danielmiessler/Fabric/pull/2267) by [T145](https://github.com/T145): feat: add WebWright as an OpenAI-compatible provider
+
+- Added WebWright as an OpenAI-compatible provider.
+- Added a changelog entry documenting the new WebWright provider.
+
+## v1.4.518 (2026-10-10)
+
+### PR [#2265](https://github.com/danielmiessler/Fabric/pull/2265) by [Owaid0723666](https://github.com/Owaid0723666): feat: add onomeo as an OpenAI-compatible provider
+
+- Added onomeo as an OpenAI-compatible provider, registered in the ProviderMap with the base URL `https://onomeo.com/v1`.
+- Added a matching `TestCreateClient` test case.
+
+## v1.4.517 (2026-10-10)
+
+### PR [#2263](https://github.com/danielmiessler/Fabric/pull/2263) by [aldoyh](https://github.com/aldoyh) and [ksylvan](https://github.com/ksylvan): Add Arabic localization file with application options and commands
+
+- Added an Arabic localization file covering application options and commands.
+- Expanded Bahrain Arabic translations across the CLI, setup flow, and error messages.
+- Added Saudi Arabic translations that match the Bahrain locale coverage.
+- Removed generic Arabic translations in favor of a regional fallback strategy, with tests for locale candidate resolution and the default Bahrain fallback order.
+- Refactored the code structure for improved readability and maintainability.
+
+## v1.4.516 (2026-10-07)
+
+### PR [#2261](https://github.com/danielmiessler/Fabric/pull/2261) by [ksylvan](https://github.com/ksylvan): fix: harden REST server, template engine and plugins
+
+- Reworked the template engine to resolve each token exactly once in a single linear scan, preventing variable values from being re-expanded into plugin or extension calls and eliminating quadratic processing time on long brace runs.
+- Added loopback security middleware and JSON content-type enforcement to the REST and Ollama-compatible servers, so that, when no API key is set, these servers accept only loopback or configured CORS hosts and origins.
+- Confined the file plugin to a root directory with `os.Root`, rejecting absolute, `~`, `..`, and escaping symlink paths, and enforcing read size limits on special files such as `/dev/zero`.
+- Restricted the fetch plugin and the Ollama image loader to public network addresses through a shared HTTP client with DNS-level address checks, a 30-second timeout, a 5-redirect limit, and no API key sent to image hosts.
+- Added per-session locking with atomic writes, request body size limits (50 MiB), merged `.env` updates, and DOMPurify sanitization plus a Content-Security-Policy in the web UI to prevent data loss, memory exhaustion, and unsafe HTML in rendered output.
+- Breaking: With no API key, the server gives 403 to a request whose Host is not loopback. To use a LAN address or another host name, add its origin with `--cors-origins`.
+- Breaking: JSON endpoints need `Content-Type: application/json`. Other requests get 415. This includes the Ollama-compatible `/api/chat`: add `-H 'Content-Type: application/json'` to a `curl -d` call.
+- Breaking: The file plugin reads only relative paths.
+- Breaking: The template engine does not expand a variable value again. With `x = "{{name}}"`, `{{x}}` gives `{{name}}`.
+- Breaking: The fetch plugin and the Ollama image loader ignore `HTTP_PROXY`, and they refuse loopback, private and other non-public addresses. This also applies to the CLI. An Ollama image URL on a LAN host now gives an error.
+- Breaking: Fabric removes terminal control sequences (other than colors) from the CLI output. `GET /config` shows a fixed mask in place of each API key. After the upgrade, get the configuration again before you send it to `POST /config/update`. The server keeps an old mask, such as `****abcd`, as a new key value.
+- Breaking: The Streamlit UI binds to `127.0.0.1`. To open it from a different computer, start it with `--server.address 0.0.0.0` and set `FABRIC_UI_TOKEN`.
+- Breaking: In a workflow, `--input-has-vars` applies only to the first input and to each input from the workflow file. The output of a step goes to the next step as literal text.
+- `code2context` and the pattern update (`-U`) skip symbolic links.
+- New session and context files get mode `0600`, and new storage folders get mode `0700`. Existing files and folders keep their mode.
+- `--notification-command` gets the title and the message with no `"`, no `'` and no `\`. `POST /config/update` merges into `.env` and answers 400 for CR, LF or NUL. A strategy name must obey the storage name rules, which refuse Windows device names such as `con` and `aux` on all platforms.
+- Breaking: The REST server runs only the `text` and `datetime` template plugins in a pattern. A `sys`, `file` or `fetch` plugin token or an extension token in a pattern gives an error on `/patterns/:name/apply` and `/chat`. The CLI runs all plugins.
+- Breaking: With no API key, the server accepts a `POST`, `PUT`, `DELETE` or `PATCH` request with an `Origin` header only from the same origin (host and port), a `--cors-origins` entry or a JSON request from the web UI on port 5173 or 4173 (`vite preview`). Before, it accepted each loopback origin on any port.
+
+## v1.4.515 (2026-10-05)
+
+### PR [#2260](https://github.com/danielmiessler/Fabric/pull/2260) by [Felixkw12](https://github.com/Felixkw12): feat: add Opper as an OpenAI-compatible provider
+
+- Added Opper as an OpenAI-compatible provider, registered in the ProviderMap with the base URL `https://api.opper.ai/v3/compat`.
+- Listed Opper in the OpenAI-Compatible Providers section of README.md and README.zh.md.
+- Added a matching `TestCreateClient` test case.
+
+## v1.4.514 (2026-10-05)
+
+### PR [#2082](https://github.com/danielmiessler/Fabric/pull/2082) by [cp89cyber](https://github.com/cp89cyber) and by [ksylvan](https://github.com/ksylvan): Add `--print-prompt` prompt export mode
+
+- Added a new `--print-prompt` flag that renders the composed chat messages and exits without calling a model.
+- Reused the shared message formatting logic so dry-run and prompt export produce consistent output.
+- Added validation, documentation, and tests for the new prompt export mode.
+- Rejected `--print-prompt` when combined with `--workflow`, returning an error consistent with `--dry-run` and `--output-session`.
+- Translated the `--print-prompt` help text and error messages across all 11 non-English locales.
+- Changed the `--dry-run` role headers from lowercase (`user:`, `assistant:`) to capitalized (`User:`, `Assistant:`) to match the prompt export format.
+
+## v1.4.513 (2026-10-05)
+
+### PR [#2258](https://github.com/danielmiessler/Fabric/pull/2258) by [JuampiHernandez](https://github.com/JuampiHernandez): feat: add Firecrawl web search via --firecrawl_search flag
+
+- Feat: add Firecrawl web search via --firecrawl_search flag
+
+## v1.4.512 (2026-10-05)
+
+### PR [#2257](https://github.com/danielmiessler/Fabric/pull/2257) by [ksylvan](https://github.com/ksylvan): feat: add DemonRoute as an OpenAI-compatible AI provider
+
+- Added DemonRoute as an OpenAI-compatible AI provider.
+- Registered DemonRoute with its OpenAI-compatible API base URL.
+- Added DemonRoute to the README’s list of supported AI providers.
+
+## v1.4.511 (2026-10-04)
+
+### PR [#2107](https://github.com/danielmiessler/Fabric/pull/2107) by [johnpippett](https://github.com/johnpippett): Security: fix remote file write and shell injection in template extensions
+
+- Fixed a remote arbitrary file write vulnerability by disabling automatic application of file changes when running in API mode, preventing unsupervised writes triggered through the REST API's `PatternName` input.
+- Replaced the weak `strings.Contains(path, "..")` check in the file manager with proper path containment validation that rejects absolute paths and confirms resolved paths stay within the project root.
+- Hardened the path containment check in `ApplyFileChanges` by using `filepath.Rel`, correctly handling edge cases such as a project root of `/`.
+- Consolidated path validation in `ParseFileChanges` and `ApplyFileChanges` to a single `filepath.IsLocal` call, which rejects absolute paths, empty paths, directory traversal, and Windows reserved names.
+- Added a regression test that fails if the path containment guard is removed.
+
+### PR [#2187](https://github.com/danielmiessler/Fabric/pull/2187) by [moritzschmitz-oviva](https://github.com/moritzschmitz-oviva): feat: add Eisenhower Matrix prioritization pattern
+
+- Added a new Eisenhower Matrix prioritization pattern for task triage and decision-making.
+- Renamed the pattern from `eisenhower` to `eisenhower_matrix` and removed the old pattern directory.
+- Relocated the Eisenhower Matrix pattern into `data/patterns`.
+- Registered the pattern's description and metadata with the BUSINESS, SELF, and STRATEGY tags.
+- Added task classification and a weekly planning extract to the pattern.
+
+## v1.4.510 (2026-10-04)
+
+### PR [#2255](https://github.com/danielmiessler/Fabric/pull/2255) by [ksylvan](https://github.com/ksylvan): fix: SSE streaming fixes (supersedes #2102, #2128, #2213, #2242, #2247)
+
+- Fixed SSE streaming behavior by correcting chat SSE headers and suppressing completion events after errors.
+- Prevented canceled chat requests from blocking stream update delivery.
+- Upgraded the OpenAI SDK to v3.71.1 and refreshed dependency manifests.
+- Restored Azure deployment routing through native SDK endpoint configuration. Chat Completions use deployment-scoped paths; Responses use `/openai/responses` with the deployment name in the `model` field. Azure endpoints must use HTTPS, and credentials do not follow cross-origin redirects.
+- Improved error handling by preserving provider error details, surfacing Claude scanner failures, and keeping streaming Ollama error responses labeled with NDJSON headers.
+
+## v1.4.509 (2026-10-04)
+
+### PR [#2201](https://github.com/danielmiessler/Fabric/pull/2201) by [ghrom](https://github.com/ghrom): feat: refresh Ultimate Law patterns to current doctrine, add judge_ultimate_law
+
+- Add `judge_ultimate_law` pattern: derives ethical verdicts by applying the Ultimate Law framework's executable rulebook stratum by stratum — deny-by-default consent, derivation chains, integrity constraints, and a falsifiability line naming the fact that would flip each verdict.
+- Refresh `ultimate_law_safety` to the framework's current doctrine: the Law quoted verbatim, consent channels, and new Forfeiture and Theft-by-withholding definitions (proportionality measured in kinds of harm; inability is never theft).
+- Refresh `audit_consent` with the consent-channel threshold test (words, conduct carrying intention, agreement, or prior permission — otherwise there is no consent to audit) and doctrine-grounded revocability.
+- Register the new pattern in pattern descriptions and extracts JSON files, categorize it under ANALYSIS and CR THINKING in `suggest_pattern`, and update `pattern_explanations.md` with renumbered entries.
+
+### PR [#2223](https://github.com/danielmiessler/Fabric/pull/2223) by [googio](https://github.com/googio) and [ksylvan](https://github.com/ksylvan): feat: add Serply web search via --serply_search flag
+
+- Added an optional Serply web search plugin (`SERPLY_API_KEY`) exposed through the new `--serply_search` flag, which runs a Google search and appends the results to the chat as markdown alongside the existing Jina `scrape_question` tool. Installations without configuration remain unchanged.
+- Refactored the Serply integration to use a shared HTTP client with a 30-second timeout, removing per-instance client configuration.
+- Simplified Serply request setup and removed the custom Fabric User-Agent header so requests use the default HTTP User-Agent.
+- Documented the `--serply_search` flag in the README and added it to the shell completions.
+- Updated search tests to use the shared HTTP client and dropped the obsolete User-Agent assertion.
+
+### PR [#2253](https://github.com/danielmiessler/Fabric/pull/2253) by [ksylvan](https://github.com/ksylvan): feat: expand pattern suggestions with Chinese workflows
+
+- Added five Chinese-language workflow patterns across the relevant suggestion categories, covering summaries, reviews, translation, and poetry.
+- Introduced deconstructive, rhetorical, and philosophical analytical lenses for text analysis.
+- Documented eight additional patterns in the suggestion catalog, including descriptions, category tags, and prompt extracts.
+- Renumbered subsequent catalog entries to accommodate the eight new additions.
+- Updated the changelog with the entry for this release.
+
+## v1.4.508 (2026-10-04)
+
+### PR [#2252](https://github.com/danielmiessler/Fabric/pull/2252) by [ksylvan](https://github.com/ksylvan): feat: add configurable CORS support to REST and Ollama servers
+
+- Added configurable CORS support to the REST and Ollama servers, with origins set through repeatable flags and environment variables.
+- Applied shared CORS middleware across both the REST and Ollama servers.
+- Required API keys for wildcard origins and excluded null origins for tighter security.
+- Handled preflight requests before authentication and removed hardcoded chat origins.
+- Loaded server settings from `.env` while preserving explicit overrides.
 
 ### Direct commits
 
-- Fix: fall back to streamed delta text when completed Codex response is empty
+- Merge branch 'main' into pr/pattern-input-normalization
+- Merge branch 'main' into fix/readme-yt-helper
 
-- Prefer extracted completed text only when content stays non-empty
-- Fall back to accumulated streamed delta text otherwise
+## v1.4.507 (2026-10-03)
 
-- Preserve streamed response text before completed response evaluation
-- Add regression test for empty completed output text
+### PR [#2173](https://github.com/danielmiessler/Fabric/pull/2173) by [OdinKral](https://github.com/OdinKral) and [ksylvan](https://github.com/ksylvan): fix: clearer error when binary name used as pattern fallback
 
-- Simulate SSE delta stream followed by blank completion
-- Verify Send returns delta text when completion lacks content
+- Added a clearer error hint when a pattern is derived from the binary name, explaining that the executable name was used as a fallback and how to specify a pattern explicitly with `-p`.
+- Introduced a `patternFromBinaryName()` helper and explicit tracking of binary-derived pattern names during flag initialization, so fallback hints appear only when a pattern truly came from the binary name.
+- Prevented `fabric-ai` from automatically selecting a pattern by binary name by centralizing the list of executable names that do not trigger pattern selection.
+- Added the `pattern_from_binary_name_hint` key with localized text across all ten non-English locale files for a consistent i18n bundle.
+- Simplified error wrapping, removed obsolete detection tests, and added coverage for default executable exclusion and extension-stripped pattern selection.
+
+### Direct commits
+
+- Merge branch 'main' into docs/sync-chinese-readme
+
+## v1.4.506 (2026-10-03)
+
+OpenAI Get "https://api.openai.com/v1/models": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+### PR [#2249](https://github.com/danielmiessler/Fabric/pull/2249) by [ksylvan](https://github.com/ksylvan): fix: respect user subtitle language arguments in yt-dlp
+
+- Fixed yt-dlp handling so user-specified subtitle language arguments are respected.
+- Skipped built-in language filters whenever users supply their own subtitle languages.
+- Preserved user arguments when retrying downloads without the built-in language filters.
+- Added tests covering language defaults, user overrides, and empty language selections.
+
+## v1.4.505 (2026-10-01)
+
+### PR [#2225](https://github.com/danielmiessler/Fabric/pull/2225) by [aiapienthusiast](https://github.com/aiapienthusiast): feat(providers): add Cheaper Inference as an OpenAI-compatible provider
+
+- Feat(providers): add Cheaper Inference as an OpenAI-compatible provider
+
+## v1.4.504 (2026-10-01)
+
+### PR [#2221](https://github.com/danielmiessler/Fabric/pull/2221) by [jamesf-coder](https://github.com/jamesf-coder) and [ksylvan](https://github.com/ksylvan): feat: add OpenCode Zen and Go vendors with session routing
+
+- Added OpenCode Zen and OpenCode Go vendors with support for session routing.
+- Simplified session ID handling by replacing UUID generation with `crypto/rand.Text` and dropping the UUID dependency.
+- Preserved existing session IDs and gave preference to named sessions.
+- Standardized the User-Agent value for both OpenCode providers to `fabric`.
+- Removed the version detection utilities and their associated tests.
+
+## v1.4.503 (2026-10-01)
+
+### PR [#2218](https://github.com/danielmiessler/Fabric/pull/2218) by [DennyHo0917](https://github.com/DennyHo0917): feat(providers): add API Route as an OpenAI-compatible provider
+
+- Added API Route (https://global.api-route.com/v1) as an OpenAI-compatible AI provider in Fabric.
+- Standardized the provider's brand name to "API Route" across the codebase.
+- Merged the latest changes from `main` into the feature branch.
+
+## v1.4.502 (2026-10-01)
+
+### PR [#2194](https://github.com/danielmiessler/Fabric/pull/2194) by [jperla](https://github.com/jperla): feat: add TrustedRouter as an OpenAI-compatible provider
+
+- Added TrustedRouter as an OpenAI-compatible provider via a single `ProviderMap` entry, which the plugin registry picks up automatically.
+- Mapped the provider name to the `TRUSTEDROUTER_API_KEY` environment variable in `BuildEnvVariable`.
+- Updated the REST configuration handlers with the matching TrustedRouter field alongside the other providers.
+
+## v1.4.501 (2026-10-01)
+
+### PR [#2193](https://github.com/danielmiessler/Fabric/pull/2193) by [Marc-oss-hub](https://github.com/Marc-oss-hub): feat: add OrcaRouter as OpenAI-compatible provider
+
+- Added OrcaRouter as an OpenAI-compatible provider, registered in the ProviderMap with the base URL `https://api.orcarouter.ai/v1`.
+- Updated the README supported-providers list and the cSpell dictionary to include OrcaRouter.
+- Added a matching `TestCreateClient` test case to cover the new provider.
+
+## v1.4.500 (2026-10-01)
+
+### PR [#2165](https://github.com/danielmiessler/Fabric/pull/2165) by [MVS-source](https://github.com/MVS-source): feat: add Eden AI as an OpenAI-compatible provider
+
+- Feat: add Eden AI as an OpenAI-compatible provider
+
+## v1.4.499 (2026-10-01)
+
+### PR [#2163](https://github.com/danielmiessler/Fabric/pull/2163) by [Thibaultjaigu](https://github.com/Thibaultjaigu): Add Requesty as an OpenAI-compatible provider
+
+- Added Requesty as an OpenAI-compatible provider, registered in the provider config with the base URL `https://router.requesty.ai/v1`, mirroring the existing OpenRouter entry.
+- Derived the `REQUESTY_API_KEY` environment variable automatically from the provider name using the existing plugin machinery, consistent with `OPENROUTER_API_KEY`.
+- Documented Requesty in the OpenAI-compatible providers section of the README.
+
+## v1.4.498 (2026-10-01)
+
+### PR [#2241](https://github.com/danielmiessler/Fabric/pull/2241) by [ksylvan](https://github.com/ksylvan): fix: require explicit configuration for optional-key AI providers
+
+- Fixed optional-key AI providers so they now require explicit configuration before activation.
+- Required base URL environment variables for providers that do not need an API key.
+- Preserved existing configuration checks for providers that require an API key.
+- Added tests covering optional-key activation and required-key checks without credentials.
+- Documented Apple Foundation Models activation through `fabric -S`.
+
+## v1.4.497 (2026-10-01)
+
+### PR [#2240](https://github.com/danielmiessler/Fabric/pull/2240) by [ksylvan](https://github.com/ksylvan): feat: add local Apple Foundation Models provider support
+
+- Added support for the local Apple Foundation Models provider.
+- Registered Apple Foundation Models with a local server endpoint.
+- Made API keys optional during provider setup.
+- Explicitly disabled streaming for non-streaming chat completion requests.
+- Documented macOS requirements, license activation, and local server startup.
+
+## v1.4.496 (2026-10-01)
+
+### PR [#2239](https://github.com/danielmiessler/Fabric/pull/2239) by [ksylvan](https://github.com/ksylvan): feat: add llama.cpp support through the LM Studio-compatible client
+
+- Added llama.cpp support through the LM Studio-compatible client, registered with a localhost endpoint and an optional API key.
+- Replaced dots with underscores in environment variable names so dotted plugin names resolve correctly.
+- Added tests covering dotted plugin names to confirm the expected environment prefixes.
+
+## v1.4.495 (2026-09-30)
+
+### PR [#2204](https://github.com/danielmiessler/Fabric/pull/2204) by [ericcurtin](https://github.com/ericcurtin): feat: add llmman to the OpenAI-compatible providers
+
+- Added llmman as an OpenAI-compatible provider, enabling local models distributed as OCI artifacts to be served through an OpenAI-compatible API on port 17434.
+- Implemented the integration with a single `ProviderMap` entry, following the LiteLLM precedent for a localhost `BaseURL` and requiring no special handling.
+- Extended the existing `TestCreateClient` table with a new case covering the llmman provider.
+
+## v1.4.494 (2026-09-29)
+
+### PR [#2212](https://github.com/danielmiessler/Fabric/pull/2212) by [pacocartones](https://github.com/pacocartones): fix(ollama): honor caller context in SendStream and ListModels
+
+- Fixed `SendStream` and `ListModels` in the Ollama vendor to honor the caller's `context.Context` instead of substituting `context.Background()`, so cancellations now propagate to `o.client.Chat` and `o.client.List`.
+- Resolved an issue where disconnecting web clients left Ollama generations running in the SSE server path, wasting compute and leaking in-flight requests (closes #2196).
+- Added a table-driven `httptest` regression test that cancels mid-stream and asserts `SendStream` returns `context.Canceled` promptly without draining the full stream.
+- Simplified the Ollama stream cancellation test coverage, including streamlined streaming responses and server cancellation checks.
+- Replaced manual cancellation error assertions with `require.ErrorIs` checks and removed explicit timeout guards and stream completion tracking.
+
+## v1.4.493 (2026-09-29)
+
+### PR [#2236](https://github.com/danielmiessler/Fabric/pull/2236) by [ksylvan](https://github.com/ksylvan): chore: clarify comments and remove obsolete code examples across backend and web
+
+- Removed redundant comments across Go sources and Svelte components.
+- Clarified documentation for provider authentication, streaming, and model discovery.
+- Documented cache behavior, configuration precedence, and locale fallback rules.
+- Added notes on security safeguards, implementation limitations, and existing test boundaries.
+- Deleted obsolete commented-out code without altering runtime behavior.
+
+## v1.4.492 (2026-09-29)
+
+### PR [#2235](https://github.com/danielmiessler/Fabric/pull/2235) by [ksylvan](https://github.com/ksylvan): fix: honor configured yt-dlp arguments for REST API transcripts
+
+- Fixed the REST API so that configured yt-dlp arguments are honored for transcript requests.
+- Passed flag and configuration arguments through to the YouTube plugin.
+- Applied plugin arguments to both plain and timestamped transcripts.
+- Added server wiring tests to verify yt-dlp argument propagation.
+- Documented configuration support for the REST transcript endpoint.
+
+## v1.4.491 (2026-09-29)
+
+### PR [#2234](https://github.com/danielmiessler/Fabric/pull/2234) by [ksylvan](https://github.com/ksylvan): chore: update web dependencies and refresh npm and pnpm lockfiles
+
+- Upgraded Svelte to 5.57.1 and SvelteKit to 2.70.3.
+- Bumped Vite to 8.3.1 and Vitest to 4.1.11.
+- Updated Skeleton to 5.0.1 and Zag to 1.43.0.
+- Upgraded TypeScript ESLint, Svelte linting, and formatting tools.
+- Refreshed both lockfiles, updated Rolldown bindings, and removed WebAssembly runtime dependencies.
+
+## v1.4.490 (2026-09-29)
+
+### PR [#2106](https://github.com/danielmiessler/Fabric/pull/2106) by [FuturMix](https://github.com/FuturMix): feat: add FuturMix as OpenAI-compatible provider
+
+- Added FuturMix as a new OpenAI-compatible provider.
+- Added a test case covering the FuturMix provider.
+
+## v1.4.489 (2026-09-29)
+
+### PR [#2189](https://github.com/danielmiessler/Fabric/pull/2189) by [dependabot](https://github.com/apps/dependabot): build(deps): bump nanoid from 5.0.9 to 5.1.16 in /web in the npm_and_yarn group across 1 directory
+
+- Bumped `nanoid` from 5.0.9 to 5.1.16 in the `/web` directory as part of the `npm_and_yarn` dependency group, addressing a security-related dependency update.
+- Merged the latest changes from `main` into the Dependabot branch to keep the update in sync with the current codebase.
+
+## v1.4.488 (2026-09-29)
+
+### PR [#2207](https://github.com/danielmiessler/Fabric/pull/2207) by [scottidler](https://github.com/scottidler) and [ksylvan](https://github.com/ksylvan): fix(anthropic): adaptive thinking on Claude 5 + add --maxTokens flag
+
+- Added a `--maxTokens` CLI flag that caps model output tokens, wiring the existing `ChatOptions.MaxTokens` field through to the provider; a value of `0` preserves the vendor default, so existing behavior is unchanged.
+- Fixed Anthropic thinking support on Claude 5 models (`claude-sonnet-5`, `claude-opus-5`, `claude-fable-5`), which rejected the legacy `thinking.type=enabled` plus `budget_tokens` shape and returned HTTP 400 for every `--thinking` value except `off`.
+- Reworked `parseThinking` to select the correct request shape per model: `thinking.type=disabled` for `off`, adaptive thinking with `output_config.effort` for Claude 5, and the legacy enabled/budget shape for older models.
+- Preserved numeric thinking budgets on adaptive models by bucketing them onto the nearest effort level using the same thresholds as the named levels, so `--thinking=2048` and `--thinking=medium` behave consistently.
+- Added `--maxTokens` shell completion support for Bash, Zsh, and Fish, treating it as an option that requires an argument.
+
+## v1.4.487 (2026-09-14)
+
+### PR [#2219](https://github.com/danielmiessler/Fabric/pull/2219) by [anandghegde](https://github.com/anandghegde): feat: add --extract and --extract-last to output only a fenced code block
+
+- Feat: add `--extract` and `--extract-last` flags that output only the first or last fenced code block of the response, like `llm -x`
+- Falls back to the full response when no fenced code block is found
+
+### Direct commits
+
+- Merge branch 'main' into docs/sync-chinese-translation
+
+## v1.4.486 (2026-09-27)
+
+### PR [#2147](https://github.com/danielmiessler/Fabric/pull/2147) by [medhwu](https://github.com/medhwu): feat: add Chinese AI vendors, i18n translation fixes, and 5 Chinese patterns
+
+- Added OpenAI-compatible provider support for three Chinese AI vendors: Aliyun DashScope (Tongyi Qianwen), Zhipu AI (bigmodel.cn/GLM), and ByteDance Ark (Doubao).
+- Added test coverage for all three new Chinese AI vendor providers.
+- Improved Chinese (i18n) translation quality by unifying "provider" terminology across 24 entries and correcting residual English text.
+- Introduced five new Chinese-language patterns: article summarization, contract risk review, classical poetry analysis, English-to-Chinese news translation, and code review.
+
+## v1.4.485 (2026-09-27)
+
+### PR [#2169](https://github.com/danielmiessler/Fabric/pull/2169) by [ksylvan](https://github.com/ksylvan): fix(core): route user input to the user message in BuildSession
+
+- Routed user input through user messages in `BuildSession`, ensuring every request ends with a user message for broader model compatibility.
+- Tracked explicit input placeholders instead of automatically appending input to the prompt.
+- Separated system instructions from user input so input is no longer duplicated.
+- Preserved raw mode input, attachment text, and multipart content during message construction.
+- Maintained pattern endpoint responses by appending input when necessary, with new regression tests for message routing and pattern substitution.
+
+## v1.4.484 (2026-09-26)
+
+### PR [#2069](https://github.com/danielmiessler/Fabric/pull/2069) by [1rashiid](https://github.com/1rashiid) and [ksylvan](https://github.com/ksylvan): feat(cli): add --workflow for sequential pattern composition
+
+- Added a `--workflow` flag that chains multiple patterns together from a YAML or JSON file, piping each step's output into the next step's input.
+- Preserved compatibility with existing flags, including `--stream`, `--dry-run`, `-m`/`-V`, `--context`, `--strategy`, and `--language`, while leaving the single-pattern `-p` path untouched.
+- Added pre-flight validation that catches empty steps, missing or repeated patterns, and unknown pattern names before any LLM call is made.
+- Added per-step overrides for input, model, vendor, and variables, with progress and error messages prefixed as `[step N/TOTAL pattern]` on stderr to keep stdout pipe-clean.
+- Added shell completions for `--workflow` in Bash, Zsh, and Fish, including workflow file path suggestions.
+
+## v1.4.483 (2026-09-26)
+
+### PR [#2229](https://github.com/danielmiessler/Fabric/pull/2229) by [ksylvan](https://github.com/ksylvan): Show provider error details in Codex 401 responses
+
+- Preserved Codex provider details in authentication errors, appending them after the localized login error message.
+- Retained the underlying authentication errors so they can be inspected through unwrapping.
+- Added regression test coverage for Codex 401 provider messages.
+- Removed the unused `calculateFileHash` method from the extension registry, along with its `crypto/sha256`, `encoding/hex`, and `io` imports.
+- Removed the unused `Verify` and `ListExtensions` methods from the extension registry.
+
+## v1.4.482 (2026-09-25)
+
+### PR [#2228](https://github.com/danielmiessler/Fabric/pull/2228) by [ksylvan](https://github.com/ksylvan): refactor: simplify Ollama chat prompt building and error replies
+
+- Refactored Ollama prompt construction to unify message joining using `strings.Builder`.
+- Centralized error handling and responses while preserving streaming and JSON output formats.
+- Added tests covering streaming errors and multiple-message forwarding.
+
+## v1.4.481 (2026-09-24)
+
+### PR [#2226](https://github.com/danielmiessler/Fabric/pull/2226) by [ksylvan](https://github.com/ksylvan): feat: add Claude Code provider through the local CLI
+
+- Added a Claude Code CLI provider that authenticates through an existing local subscription login.
+- Added support for streaming responses, model selection, and configurable thinking effort.
+- Added handling for local images and base64 attachments via temporary files.
+- Stripped Anthropic environment variables to preserve subscription-based billing.
+- Added Claude Opus 5.5 with extended context support.
+
+## v1.4.480 (2026-09-23)
+
+### PR [#2224](https://github.com/danielmiessler/Fabric/pull/2224) by [ksylvan](https://github.com/ksylvan): chore: remove GitHub Models provider integration and documentation
+
+- Removed the GitHub Models provider from the compatible provider registry, dropping the integration entirely.
+- Dropped GitHub API version headers from model discovery requests.
+- Replaced GitHub cache fixtures with generic test providers and removed GitHub header verification along with its supporting test utilities.
+- Deleted the GitHub Models setup documentation and the Copilot cross-reference.
+- Removed GitHub Models listings from both the English and Chinese READMEs.
+
+## v1.4.479 (2026-09-17)
+
+### PR [#2220](https://github.com/danielmiessler/Fabric/pull/2220) by [jiweiyeah](https://github.com/jiweiyeah): feat(providers): add Y-API as an OpenAI-compatible provider
+
+- Feat(providers): add Y-API as an OpenAI-compatible provider
+
+## v1.4.478 (2026-09-06)
+
+### PR [#2216](https://github.com/danielmiessler/Fabric/pull/2216) by [ctbaum](https://github.com/ctbaum): fix: enable raw mode for GPT-6 models
+
+- Fix: enable raw mode for GPT-6 models
+
+## v1.4.477 (2026-09-03)
+
+### PR [#2211](https://github.com/danielmiessler/Fabric/pull/2211) by [ksylvan](https://github.com/ksylvan): fix: prevent pattern loader temporary directory leaks
+
+- Prevent pattern loader leaks by lazily creating temporary directories during database population and cleaning them up after successful or failed downloads.
+- Add regression tests for lazy directory creation and cleanup.
+
+## v1.4.476 (2026-09-03)
+
+### PR [#2210](https://github.com/danielmiessler/Fabric/pull/2210) by [ksylvan](https://github.com/ksylvan): feat: add Pzero as an OpenAI-compatible AI provider
+
+- Added Pzero as an OpenAI-compatible AI provider.
+- Registered Pzero with its OpenAI-compatible API base URL.
+- Added Pzero to the README’s list of supported AI providers.
+
+## v1.4.475 (2026-09-03)
+
+### PR [#2209](https://github.com/danielmiessler/Fabric/pull/2209) by [kadiryildiz283](https://github.com/kadiryildiz283): feat(i18n): add Turkish (tr) translation
+
+- Feat(i18n): add Turkish (tr) translation
+
+## v1.4.474 (2026-09-02)
+
+### PR [#2206](https://github.com/danielmiessler/Fabric/pull/2206) by [ksylvan](https://github.com/ksylvan): fix: confine storage names and authenticate Ollama serve
+
+- Reject unsafe cross-platform storage names and directory traversal attempts.
+- Confine symlink targets to configured filesystem storage directories.
+- Require API keys for non-loopback server bindings and authenticate Ollama routes.
+- Validate chat pattern, context, and session names early while preventing internal filesystem details from leaking through client errors.
+- Default the REST server to loopback port 8080 and add regression coverage for traversal, symlink, and authentication security.
+
+## v1.4.473 (2026-08-29)
+
+### PR [#2203](https://github.com/danielmiessler/Fabric/pull/2203) by [pacocartones](https://github.com/pacocartones) and [ksylvan](https://github.com/ksylvan): fix(web): preserve multi-byte UTF-8 split across SSE chunks in chat stream
+
+- Fix: preserve split UTF-8 characters in streaming responses
+- Decode API response chunks with persistent streaming state
+- Reuse streaming decoder when inspecting chat backend events
+
+## v1.4.472 (2026-08-29)
+
+### PR [#2198](https://github.com/danielmiessler/Fabric/pull/2198) by [cuihuan](https://github.com/cuihuan): feat(providers): add Synthorai as an OpenAI-compatible provider
+
+- Feat(providers): add Synthorai as an OpenAI-compatible provider
+
+### Direct commits
+
+- Chore: delete generate_changelog noise in README.
+
+## v1.4.471 (2026-08-28)
+
+### PR [#2200](https://github.com/danielmiessler/Fabric/pull/2200) by [ksylvan](https://github.com/ksylvan): fix: persist Codex OAuth tokens after refresh
+
+- Persist refreshed Codex OAuth tokens securely across processes, writing rotated credentials atomically with cross-process locks.
+- Reload stored tokens before refresh and return valid in-memory tokens first, preventing stale disk values from overwriting fresh credentials.
+- Reuse valid refresh tokens before launching interactive authentication, requiring account identifiers and unexpired tokens for fast-path reuse.
+- Preserve existing environment values, save environment files atomically while holding locks, and enforce secret-only permissions.
+- Reactivate configured vendors and surface configuration and provider failures immediately, with localized Codex prompts and persistence errors.
+
+## v1.4.470 (2026-08-04)
+
+### PR [#2186](https://github.com/danielmiessler/Fabric/pull/2186) by [giodamelio](https://github.com/giodamelio): Update Nixpkgs version for newer Go version
+
+- Updated the Nixpkgs version to provide a Go release that satisfies the `go.mod` requirement of Go >= 1.26.0, as the previously pinned Nixpkgs only shipped Go 1.25.4.
+
+## v1.4.469 (2026-08-03)
+
+### PR [#2185](https://github.com/danielmiessler/Fabric/pull/2185) by [ksylvan](https://github.com/ksylvan): feat(web): replace PDF.js pipeline with pdf-inspector WASM worker
+
+- Replaced the PDF.js processing pipeline with the new `pdf-inspector.worker.ts`, backed by `@firecrawl/pdf-inspector-wasm`. The worker initializes WASM one time and processes transferred ArrayBuffers.
+- Added worker error handling. A worker crash now rejects all pending requests with a clear error and terminates the worker. The next request starts a new worker.
+- Fixed the file attachment behavior. The app now parses each file and stores its content without a chat request. One submit sends exactly one `streamChat` call, not one call for each attached file.
+- Removed the legacy PDF dependency chain: `pdf-to-markdown-core`, `pdfjs-dist`, `pdf-config.ts`, and the related build configuration. `@firecrawl/pdf-inspector-wasm` is now the only PDF dependency.
+- Simplified the worker boundary in follow-up refactors: merged redundant methods, removed dead code, and inlined a single-use interface. The full test suite continued to pass.
+
+## v1.4.468 (2026-08-02)
+
+### PR [#2182](https://github.com/danielmiessler/Fabric/pull/2182) by [drawliin](https://github.com/drawliin): fix(ollama): close stream channel on errors
+
+- Fix(ollama): close stream channel on errors
+
+## v1.4.467 (2026-07-31)
+
+### PR [#2171](https://github.com/danielmiessler/Fabric/pull/2171) by [OdinKral](https://github.com/OdinKral): feat(scripts): add pattern/maintenance audit script
+
+- Adds `scripts/audit-patterns.sh`, a dependency-free audit tool for the patterns library that detects thin patterns (under 15 lines), bloated patterns (over 50 KB), stale hardcoded model references, missing `INPUT` sections, i18n key gaps, and shell completion gaps. The script is read-only and exits with code `0` by default, or `1` when run with `--strict` for CI integration.
+
+## v1.4.466 (2026-07-30)
+
+### PR [#2116](https://github.com/danielmiessler/Fabric/pull/2116) by [ksylvan](https://github.com/ksylvan) and [dependabot](https://github.com/apps/dependabot): fix(web): repair the chat page and modernize the build toolchain
+
+- Modernized the web stack by upgrading Tailwind, Skeleton, SvelteKit, Vite, and supporting dependencies.
+- Replaced removed Skeleton components with compatible local implementations to restore UI functionality.
+- Improved pre-stream chat error reporting to prevent duplication of streamed errors, and hardened vendor list parsing to return empty model arrays on malformed input.
+- Fixed stream completion crashes, normalized displayed error messages, corrected toast stacking order, and added warning notification support.
+- Restored linting, formatting, testing, and pnpm override configuration, and preserved custom themes through the Tailwind CSS-based configuration migration.
+
+### PR [#2178](https://github.com/danielmiessler/Fabric/pull/2178) by [OdinKral](https://github.com/OdinKral) and [ksylvan](https://github.com/ksylvan): feat(patterns): add generate_frontmatter for PKM/Obsidian users
+
+- Add `generate_frontmatter` to conversion, extraction, and writing categories
+- Document PKM-ready YAML metadata fields in pattern explanations
+- Register pattern descriptions and extracts for suggestion workflows
+- Credit both contributors in incoming changelog entry
+
+## v1.4.465 (2026-07-29)
+
+### PR [#2180](https://github.com/danielmiessler/Fabric/pull/2180) by [ksylvan](https://github.com/ksylvan): fix: include Grok in localized --search help text
+
+- Fix: Updated all 11 locale entries in the i18n message catalog to include "Grok" in the `enable_web_search_tool` help text, ensuring Grok (xAI) web search support is discoverable via `fabric --help`. Also updates the generated README help block to match. No functional change.
+
+## v1.4.464 (2026-07-29)
+
+### PR [#2179](https://github.com/danielmiessler/Fabric/pull/2179) by [ksylvan](https://github.com/ksylvan): fix: declare completion arguments and synchronize CLI help
+
+- Fix: declare completion arguments and synchronize CLI help
+- Declare Fish completion arguments for dynamic and fixed values
+- Enable filtered file suggestions for supported path options
+- Add Spotify, transcription, metadata, and wire-debug completion options
+- Include Grok among providers supporting web search completion
+- Keep the input/output token detail in the show-metadata description
+
+## v1.4.463 (2026-07-28)
+
+### PR [#2168](https://github.com/danielmiessler/Fabric/pull/2168) by [ksylvan](https://github.com/ksylvan): fix: complete localized setup and error messages for supported locales
+
+- Fix: complete localized setup and error messages across supported locales
+- Translate Bedrock setup prompts across nine supported locales
+- Localize datetime and system template errors consistently
+- Translate Persian Spotify errors and setup guidance
+- Correct Japanese and Polish file operation log labels
+
+## v1.4.462 (2026-07-28)
+
+### PR [#2123](https://github.com/danielmiessler/Fabric/pull/2123) by [ksylvan](https://github.com/ksylvan) and [OdinKral](https://github.com/OdinKral): fix: block path traversal in pattern name lookup
+
+- **Security Fix:** Blocked path traversal attacks in pattern name lookup (closes #2094) — pattern names containing `..` could previously escape the patterns directory and read arbitrary files via `filepath.Join`; a guard has been added at the top of `getFromDB`, an i18n key `pattern_invalid_name` has been added to all 11 locale files, and test cases now cover all common traversal variants.
+- New translations for the "invalid pattern" user-facing string.
+
+## v1.4.461 (2026-07-28)
+
+### PR [#2152](https://github.com/danielmiessler/Fabric/pull/2152) by [AUTHENSOR](https://github.com/AUTHENSOR): fix: shell-escape extension values to prevent command injection
+
+- **Fix:** Shell-escape extension values to prevent command injection in the extension executor, which previously ran commands via `sh -c` with unescaped, user-controlled values interpolated into the command string. All user-controlled values are now wrapped in single quotes with embedded-single-quote escaping prior to interpolation, ensuring the shell treats them as literal arguments. A regression test (`ShellInjectionBlocked`) has been added to verify that malicious input (e.g., `hello; touch /marker`) does not execute unintended shell commands.
+
+## v1.4.460 (2026-07-24)
+
+### PR [#2166](https://github.com/danielmiessler/Fabric/pull/2166) by [ksylvan](https://github.com/ksylvan): feat: add Claude Opus 5 support and refresh dependencies
+
+- Add Claude Opus 5 to the supported model selection.
+- Disable sampling parameters for Claude Opus 5 requests.
+- Restrict one-million-token beta headers to compatible Claude models only.
+- Remove unsupported 200K-context models from the beta header mapping.
+- Upgrade Anthropic, AWS, Ollama, Google, and supporting dependencies.
+
+## v1.4.459 (2026-07-16)
+
+### PR [#2135](https://github.com/danielmiessler/Fabric/pull/2135) by [octo-patch](https://github.com/octo-patch): feat: upgrade MiniMax default model to M3
+
+- Upgraded the MiniMax default model to M3, making it the new flagship selection.
+- Added MiniMax-M3 to the static model list as the first entry, establishing it as the default.
+- Retained MiniMax-M2.7 and MiniMax-M2.7-highspeed as available alternative models.
+- Removed deprecated models (M2.5, M2.5-highspeed, M2.5-lightning, M2, M2.1, and M2.1-lightning) from the static list.
+
+## v1.4.458 (2026-07-12)
+
+### PR [#2161](https://github.com/danielmiessler/Fabric/pull/2161) by [ksylvan](https://github.com/ksylvan): fix: respect Anthropic chat option max token overrides
+
+- Fix: respect Anthropic chat option max token overrides
+
+- Use configured Anthropic max tokens as default
+- Apply chat option max tokens when provided
+
+- Preserve existing behavior for missing token overrides
+- Add tests for default max token selection
+
+- Add tests for explicit max token overrides
+
+### Direct commits
+
+- Chore: clean up ChangeLog
+
+## v1.4.457 (2026-07-09)
+
+### PR [#2155](https://github.com/danielmiessler/Fabric/pull/2155) by [ksylvan](https://github.com/ksylvan): Claude Sonnet 5 Anthropic support
+
+- Add Claude Sonnet 5 to supported Anthropic models
+- Enable one-million-token context beta for Claude 5 models
+- Omit sampling parameters for Claude Sonnet 5 requests
+- Centralize Anthropic sampling restrictions behind prefix matching
+- Remove older Claude 4 aliases from model listings
+
+### PR [#2156](https://github.com/danielmiessler/Fabric/pull/2156) by [ksylvan](https://github.com/ksylvan): Make it possible to back-fill missing ChangeLog entries
+
+- Add support for changelog generation for closed pull requests via a new `--closed-ok` flag, bypassing open-state validation.
+- Skip mergeability checks when processing closed pull requests to allow smooth back-filling of missing entries.
+- Store the closed pull request allowance setting in the generator configuration for consistent behavior.
+- Improve error messaging to guide users toward using `--closed-ok` when validation errors occur on closed PRs.
+- Introduce the `--closed-ok` flag as the primary mechanism for enabling back-fill workflows on previously closed pull requests.
+
+## v1.4.455 (2026-06-09)
+
+### PR [#2138](https://github.com/danielmiessler/Fabric/pull/2138) by [ksylvan](https://github.com/ksylvan): New Claude Fable model + cache OpenAI model discovery and handle provider rate limits
+
+- Add persistent cache for provider model discovery results, improving performance and reliability of provider integrations.
+- Serve stale model caches during discovery failures, ensuring continued operation when upstream providers are unavailable.
+- Add Claude Fable 5 Anthropic model support, with sampling parameters automatically omitted for compatibility.
+- Return concise localized errors for rate-limited model fetches, with updated translations across all supported locales.
+- Update Go dependencies for AI provider integrations to keep upstream libraries current.
+
+## v1.4.454 (2026-06-02)
+
+### PR [#2136](https://github.com/danielmiessler/Fabric/pull/2136) by [ksylvan](https://github.com/ksylvan): chore: extend sampling param exclusion to Opus 4.8 models
+
+- Extends the sampling parameter exclusion logic to cover Opus 4.8 models, ensuring consistent behavior alongside the existing Opus 4.7 exclusion.
+- Adds the `claude-opus-4-8` model prefix to the sampling parameter exclusion check.
+- Updates the associated code comment to explicitly reference Opus 4.8 models.
+
+## v1.4.453 (2026-05-28)
+
+### PR [#2132](https://github.com/danielmiessler/Fabric/pull/2132) by [ksylvan](https://github.com/ksylvan): Add Claude Opus 4.8 model and bump Go toolchain and dependencies
+
+- Add Claude Opus 4.8 to the list of supported models.
+- Upgrade the Go toolchain to version 1.26.0.
+- Bump `anthropic-sdk-go` to v1.46.0.
+- Update AWS SDK and Bedrock service modules to their latest versions.
+- Bump the Ollama client to v0.24.0.
+
+## v1.4.452 (2026-05-04)
+
+### PR [#2111](https://github.com/danielmiessler/Fabric/pull/2111) by [ksylvan](https://github.com/ksylvan): fix: omit Anthropic sampling params for Claude Opus 4.7
+
+- Fix: Omit Anthropic sampling parameters for Claude Opus 4.7 to ensure compatibility.
+- Add a sampling parameter guard specifically for Opus 4.7.
+- Omit `temperature` and `top_p` for models that do not support these parameters.
+- Preserve existing `TopP` and temperature selection behavior for compatible models.
+- Add unit test coverage for the Opus 4.7 sampling parameter omission.
+
+## v1.4.451 (2026-04-23)
+
+### PR [#2079](https://github.com/danielmiessler/Fabric/pull/2079) by [teamsincetoday](https://github.com/teamsincetoday): Add 3 commerce intelligence patterns: affiliate extraction, video entities, monetization
+
+- Added `extract_affiliate_products` pattern to surface both sponsored and organic affiliate opportunities from any video transcript, going beyond the existing `extract_sponsors` pattern.
+- Added `extract_video_commerce_entities` pattern to identify all commercial entities in video content, categorized by type, timestamp position, and purchase likelihood.
+- Added `analyze_monetization_opportunities` pattern to map audience intent to revenue strategies, covering affiliate links, sponsorships, and digital products.
+- Registered all three new patterns in `pattern_descriptions.json` and `pattern_extracts.json` with appropriate metadata and tags.
+- Integrated all three patterns into `suggest_pattern` under the ANALYSIS, BUSINESS, and EXTRACT categories, and documented them in `pattern_explanations.md`.
+
+### PR [#2086](https://github.com/danielmiessler/Fabric/pull/2086) by [majiayu000](https://github.com/majiayu000): fix: parse vendor prefix from model name for vendor/model convention
+
+- **Fix:** Added fallback logic to parse the vendor prefix from a model name when no vendor is explicitly specified. When a model string such as `ollama/llama3` is passed, the lookup no longer fails with a "could not find vendor" error; instead, the first path segment is split and checked against known vendors, correctly resolving the model to `llama3` under the `Ollama` vendor group.
+
+## v1.4.450 (2026-04-23)
+
+### PR [#2092](https://github.com/danielmiessler/Fabric/pull/2092) by [Resistor52](https://github.com/Resistor52): feat(openai): add GrokAI search grounding via xAI Responses API
+
+- Added support for GrokAI search grounding via xAI's Responses API, fixing HTTP 422 errors caused by a hardcoded OpenAI `web_search_preview` tool name in `buildResponseParams`.
+- Introduced two new fields to `openai_compatible.ProviderConfig`: `WebSearchToolName` (to override the default web search tool name) and `EnableXSearch` (to append xAI's `x_search` tool when search is enabled).
+- Both new fields default to empty/false, preserving full backwards compatibility for all existing providers.
+- GrokAI is pre-configured with `WebSearchToolName` set to `"web_search"` and `EnableXSearch` set to `true`, enabling grounded search results with real source URLs via `fabric -V GrokAI --search`.
+- Added tests in `openai_test.go` covering the new override paths and confirming default provider behavior remains unchanged.
+
+## v1.4.449 (2026-04-23)
+
+### PR [#2089](https://github.com/danielmiessler/Fabric/pull/2089) by [dependabot](https://github.com/apps/dependabot) and [ksylvan](https://github.com/ksylvan): chore(deps-dev): bump vite from 5.4.21 to 8.0.8 in /web in the npm_and_yarn group across 1 directory
+
+- Chore(deps-dev): bump vite
+Bumps the npm_and_yarn group with 1 update in the /web directory: [vite](<https://github.com/vitejs/vite/tree/HEAD/packages/vite).>
+
+Updates `vite` from 5.4.21 to 8.0.8
+
+- [Release notes](<https://github.com/vitejs/vite/releases)>
+- [Changelog](<https://github.com/vitejs/vite/blob/main/packages/vite/CHANGELOG.md)>
+
+- [Commits](<https://github.com/vitejs/vite/commits/v8.0.8/packages/vite)>
+updated-dependencies:
+
+- dependency-name: vite
+dependency-version: 8.0.8
+dependency-type: direct:development
+dependency-group: npm_and_yarn
+Signed-off-by: dependabot[bot] <support@github.com>
+
+### PR [#2103](https://github.com/danielmiessler/Fabric/pull/2103) by [dependabot](https://github.com/apps/dependabot) and [ksylvan](https://github.com/ksylvan): chore(deps): bump github.com/go-git/go-git/v5 from 5.17.2 to 5.18.0 in the go_modules group across 1 directory
+
+- Upgraded Vite from 5.4.21 to 8.0.8 in the web layer, representing a significant major-version jump with potential performance and build tooling improvements.
+- Bumped `@sveltejs/vite-plugin-svelte` from 4.0.4 to 7.0.0, a major version update aligning the Svelte plugin with the upgraded Vite 8 runtime.
+- Updated AWS SDK Go v2 modules to their latest patches, ensuring up-to-date cloud integration support and security fixes.
+- Updated the Ollama client from 0.20.4 to 0.21.1, keeping local AI model support current with the latest client improvements.
+- Upgraded `go-git` from 5.17.2 to 5.18.0, incorporating the latest fixes and improvements to Git operations within the Go module ecosystem.
+
+### Direct commits
+
+- Docs: add Scoop install instructions and expand cSpell dictionary
+
+- Add Windows Scoop install section to Chinese README
+- Link Scoop install entry in both README tables of contents
+
+- Extend cSpell dictionary with APIM, MSAL, and related terms
+- Ignore `.vscode/**` paths during cSpell checks
+
+- Allow `strong` tag in cSpell markdown configuration
+- Docs: add Scoop installation instructions
 
 ## v1.4.447 (2026-04-17)
 

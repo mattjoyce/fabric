@@ -24,10 +24,22 @@ func TestInit(t *testing.T) {
 	assert.Equal(t, expectedFlags.Copy, flags.Copy)
 }
 
+func TestInitPatternFromBinaryName(t *testing.T) {
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
+	for argv0, want := range map[string]string{"fabric-ai": "", "summarize.exe": "summarize"} {
+		os.Args = []string{argv0}
+		flags, err := Init()
+		assert.NoError(t, err)
+		assert.Equal(t, want, flags.Pattern, argv0)
+		assert.Equal(t, want != "", flags.patternFromBinary, argv0)
+	}
+}
+
 func TestReadStdin(t *testing.T) {
 	input := "test input"
 	stdin := io.NopCloser(strings.NewReader(input))
-	// No need to cast stdin to *os.File, pass it as io.ReadCloser directly
 	content, err := ReadStdin(stdin)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -74,6 +86,11 @@ func TestBuildChatOptions(t *testing.T) {
 	assert.Equal(t, expectedOptions, options)
 }
 
+func TestIsChatRequestWithPrintPrompt(t *testing.T) {
+	flags := &Flags{PrintPrompt: true}
+	assert.True(t, flags.IsChatRequest())
+}
+
 func TestBuildChatOptionsDefaultSeed(t *testing.T) {
 	flags := &Flags{
 		Temperature:      0.8,
@@ -113,8 +130,19 @@ func TestBuildChatOptionsSuppressThink(t *testing.T) {
 	assert.Equal(t, "[[/t]]", options.ThinkEndTag)
 }
 
+func TestBuildChatOptionsExtractBuffersStream(t *testing.T) {
+	for _, flags := range []*Flags{{Extract: true}, {ExtractLast: true}} {
+		options, err := flags.BuildChatOptions()
+		assert.NoError(t, err)
+		assert.True(t, options.BufferStream)
+	}
+
+	options, err := (&Flags{}).BuildChatOptions()
+	assert.NoError(t, err)
+	assert.False(t, options.BufferStream)
+}
+
 func TestInitWithYAMLConfig(t *testing.T) {
-	// Create a temporary YAML config file
 	configContent := `
 temperature: 0.9
 model: gpt-4
@@ -134,7 +162,6 @@ stream: true
 		t.Fatal(err)
 	}
 
-	// Test 1: Basic YAML loading
 	t.Run("Load YAML config", func(t *testing.T) {
 		oldArgs := os.Args
 		defer func() { os.Args = oldArgs }()
@@ -148,7 +175,6 @@ stream: true
 		assert.True(t, flags.Stream)
 	})
 
-	// Test 2: CLI overrides YAML
 	t.Run("CLI overrides YAML", func(t *testing.T) {
 		oldArgs := os.Args
 		defer func() { os.Args = oldArgs }()
@@ -162,7 +188,6 @@ stream: true
 		assert.True(t, flags.Stream)              // unchanged from YAML
 	})
 
-	// Test 3: Invalid YAML config
 	t.Run("Invalid YAML config", func(t *testing.T) {
 		badConfig := `
 temperature: "not a float"
@@ -216,13 +241,11 @@ func TestValidateImageFile(t *testing.T) {
 	})
 
 	t.Run("Existing file should fail", func(t *testing.T) {
-		// Create a temporary file
 		tempFile, err := os.CreateTemp("", "test*.png")
 		assert.NoError(t, err)
 		defer os.Remove(tempFile.Name())
 		tempFile.Close()
 
-		// Validation should fail because file exists
 		err = validateImageFile(tempFile.Name())
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "image file already exists")
@@ -230,7 +253,7 @@ func TestValidateImageFile(t *testing.T) {
 
 	t.Run("Non-existing file with valid extension should pass", func(t *testing.T) {
 		nonExistentFile := filepath.Join(os.TempDir(), "non_existent_file.png")
-		// Make sure the file doesn't exist
+		// Remove a leftover from an earlier run.
 		os.Remove(nonExistentFile)
 
 		err := validateImageFile(nonExistentFile)
@@ -261,7 +284,6 @@ func TestBuildChatOptionsWithImageFileValidation(t *testing.T) {
 	})
 
 	t.Run("Existing file should fail", func(t *testing.T) {
-		// Create a temporary file
 		tempFile, err := os.CreateTemp("", "existing*.png")
 		assert.NoError(t, err)
 		defer os.Remove(tempFile.Name())
@@ -285,7 +307,6 @@ func TestValidateImageParameters(t *testing.T) {
 	})
 
 	t.Run("Image parameters without image file should fail", func(t *testing.T) {
-		// Test each parameter individually
 		err := validateImageParameters("", "1024x1024", "", "", 0)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "image parameters")
@@ -303,7 +324,6 @@ func TestValidateImageParameters(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "image parameters")
 
-		// Test multiple parameters
 		err = validateImageParameters("", "1024x1024", "high", "transparent", 50)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "image parameters")
@@ -445,7 +465,7 @@ func TestBuildChatOptionsWithImageParameters(t *testing.T) {
 
 	t.Run("Image parameters without image file should fail in BuildChatOptions", func(t *testing.T) {
 		flags := &Flags{
-			ImageSize: "1024x1024", // Image parameter without ImageFile
+			ImageSize: "1024x1024",
 		}
 
 		options, err := flags.BuildChatOptions()

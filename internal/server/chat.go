@@ -52,7 +52,7 @@ func NewChatHandler(r *gin.Engine, registry *core.PluginRegistry, db *fsdb.Db) *
 		db:       db,
 	}
 
-	r.POST("/chat", handler.HandleChat)
+	r.POST("/chat", requireJSON, handler.HandleChat)
 
 	return handler
 }
@@ -73,19 +73,29 @@ func (h *ChatHandler) HandleChat(c *gin.Context) {
 
 	if err := c.BindJSON(&request); err != nil {
 		log.Printf("Error binding JSON: %v", err)
-		c.Writer.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+		setHSTS(c)
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf(i18n.T("server_invalid_request_format"), err)})
 		return
 	}
 
-	// Add log to check received language field
+	for _, prompt := range request.Prompts {
+		if rejectUnsafePatternName(c, prompt.PatternName) {
+			return
+		}
+		if rejectInvalidStorageName(c, prompt.ContextName) {
+			return
+		}
+		if rejectInvalidStorageName(c, prompt.SessionName) {
+			return
+		}
+	}
+
 	log.Printf("Received chat request - Language: '%s', Prompts: %d", request.Language, len(request.Prompts))
 
 	// Set headers for SSE
-	c.Writer.Header().Set("Content-Type", "text/readystream")
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
 	c.Writer.Header().Set("Connection", "keep-alive")
-	c.Writer.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
 	c.Writer.Header().Set("X-Accel-Buffering", "no")
 
 	clientGone := c.Writer.CloseNotify()
@@ -96,10 +106,15 @@ func (h *ChatHandler) HandleChat(c *gin.Context) {
 			log.Printf("Client disconnected")
 			return
 		default:
-			log.Printf("Processing prompt %d: Model=%s Pattern=%s Context=%s",
+			log.Printf("Processing prompt %d: Model=%q Pattern=%q Context=%q",
 				i+1, prompt.Model, prompt.PatternName, prompt.ContextName)
 
 			streamChan := make(chan domain.StreamUpdate)
+			// Send returns an error for a failure that happens before it starts
+			// to stream, such as a pattern that needs a variable the request
+			// does not give. Such an error never reaches streamChan, so keep it
+			// here and report it after the stream ends.
+			sendErrChan := make(chan error, 1)
 
 			go func(p PromptRequest) {
 				defer close(streamChan)
@@ -135,11 +150,12 @@ func (h *ChatHandler) HandleChat(c *gin.Context) {
 				_, err = chatter.Send(c.Request.Context(), chatReq, opts)
 				if err != nil {
 					log.Printf("Error from chatter.Send: %v", err)
-					// Error already sent to streamChan via domain.StreamTypeError if occurred in Send loop
+					sendErrChan <- err
 					return
 				}
 			}(prompt)
 
+			sawError := false
 			for update := range streamChan {
 				select {
 				case <-clientGone:
@@ -159,6 +175,7 @@ func (h *ChatHandler) HandleChat(c *gin.Context) {
 							Usage: update.Usage,
 						}
 					case domain.StreamTypeError:
+						sawError = true
 						response = StreamResponse{
 							Type:    "error",
 							Format:  "plain",
@@ -173,16 +190,56 @@ func (h *ChatHandler) HandleChat(c *gin.Context) {
 				}
 			}
 
-			completeResponse := StreamResponse{
-				Type:    "complete",
-				Format:  "plain",
-				Content: "",
+			// The goroutine writes sendErrChan before it closes streamChan, so
+			// the value is here by the time the loop above ends.
+			if response, ok := unreportedSendError(sendErrChan, sawError); ok {
+				sawError = true
+				if err := writeSSEResponse(c.Writer, response); err != nil {
+					log.Printf("Error writing error response: %v", err)
+					return
+				}
 			}
-			if err := writeSSEResponse(c.Writer, completeResponse); err != nil {
-				log.Printf("Error writing completion response: %v", err)
-				return
+
+			// A prompt that failed is not complete. Do not tell the client
+			// that it is.
+			if !sawError {
+				completeResponse := StreamResponse{
+					Type:    "complete",
+					Format:  "plain",
+					Content: "",
+				}
+				if err := writeSSEResponse(c.Writer, completeResponse); err != nil {
+					log.Printf("Error writing completion response: %v", err)
+					return
+				}
 			}
 		}
+	}
+}
+
+// unreportedSendError reads the error that Send returned and makes the response
+// that tells the client about it. The second result is false when there is
+// nothing to send.
+//
+// Send both gives a stream error to the update channel and returns it, so the
+// client already has that error and must not get it twice. The sawError
+// argument says whether an error went to the client during the stream. An error
+// that Send makes before or after the stream, such as a pattern that needs a
+// variable the request does not give, never goes to the update channel, and
+// this function is the only way the client learns about it.
+func unreportedSendError(sendErrChan <-chan error, sawError bool) (StreamResponse, bool) {
+	select {
+	case sendErr := <-sendErrChan:
+		if sendErr == nil || sawError {
+			return StreamResponse{}, false
+		}
+		return StreamResponse{
+			Type:    "error",
+			Format:  "plain",
+			Content: fmt.Sprintf(i18n.T("server_chat_error"), sendErr),
+		}, true
+	default:
+		return StreamResponse{}, false
 	}
 }
 

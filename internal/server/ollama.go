@@ -45,6 +45,7 @@ type APIConvert struct {
 	registry *core.PluginRegistry
 	r        *gin.Engine
 	addr     *string
+	apiKey   string
 }
 
 type OllamaRequestBody struct {
@@ -61,20 +62,17 @@ type OllamaMessage struct {
 }
 
 type OllamaResponse struct {
-	Model     string `json:"model"`
-	CreatedAt string `json:"created_at"`
-	Message   struct {
-		Role    string `json:"role"`
-		Content string `json:"content"`
-	} `json:"message"`
-	DoneReason         string `json:"done_reason,omitempty"`
-	Done               bool   `json:"done"`
-	TotalDuration      int64  `json:"total_duration,omitempty"`
-	LoadDuration       int64  `json:"load_duration,omitempty"`
-	PromptEvalCount    int64  `json:"prompt_eval_count,omitempty"`
-	PromptEvalDuration int64  `json:"prompt_eval_duration,omitempty"`
-	EvalCount          int64  `json:"eval_count,omitempty"`
-	EvalDuration       int64  `json:"eval_duration,omitempty"`
+	Model              string        `json:"model"`
+	CreatedAt          string        `json:"created_at"`
+	Message            OllamaMessage `json:"message"`
+	DoneReason         string        `json:"done_reason,omitempty"`
+	Done               bool          `json:"done"`
+	TotalDuration      int64         `json:"total_duration,omitempty"`
+	LoadDuration       int64         `json:"load_duration,omitempty"`
+	PromptEvalCount    int64         `json:"prompt_eval_count,omitempty"`
+	PromptEvalDuration int64         `json:"prompt_eval_duration,omitempty"`
+	EvalCount          int64         `json:"eval_count,omitempty"`
+	EvalDuration       int64         `json:"eval_duration,omitempty"`
 }
 
 type FabricResponseFormat struct {
@@ -115,7 +113,7 @@ func parseOllamaNumCtx(options map[string]any) (int, error) {
 		if math.Trunc(v) != v {
 			return 0, errors.New(i18n.T("ollama_num_ctx_must_be_integer"))
 		}
-		// Check for overflow on 32-bit systems (negative values handled by validation at line 166)
+		// Check for overflow on 32-bit systems (the contextLength <= 0 check below stops negative values)
 		if v > float64(maxInt) {
 			return 0, errors.New(i18n.T("ollama_num_ctx_value_out_of_range"))
 		}
@@ -129,7 +127,7 @@ func parseOllamaNumCtx(options map[string]any) (int, error) {
 		if math.Trunc(f64) != f64 {
 			return 0, errors.New(i18n.T("ollama_num_ctx_must_be_integer"))
 		}
-		// Check for overflow on 32-bit systems (negative values handled by validation at line 177)
+		// Check for overflow on 32-bit systems (the contextLength <= 0 check below stops negative values)
 		if f64 > float64(maxInt) {
 			return 0, errors.New(i18n.T("ollama_num_ctx_value_out_of_range"))
 		}
@@ -188,14 +186,45 @@ func parseOllamaNumCtx(options map[string]any) (int, error) {
 	return contextLength, nil
 }
 
-func ServeOllama(registry *core.PluginRegistry, address string, version string) (err error) {
-	r := gin.New()
+// fabricChatClient sends the /api/chat self-forward, which can contain
+// the configured API key. It does not use a proxy, because the default
+// transport obeys HTTP_PROXY and can send the key to the proxy. It does
+// not obey redirects, and cannot send the key again to a location that
+// the operator did not configure.
+var fabricChatClient = newFabricChatClient()
 
-	// Middleware
-	r.Use(gin.Logger())
-	r.Use(gin.Recovery())
+func newFabricChatClient() *http.Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = nil
+	return &http.Client{
+		Transport: transport,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+}
 
-	// Register routes
+// ServeOllama operates the Ollama-compatible API server on address. An
+// empty apiKey sets authentication to off. This is permitted only for
+// loopback binds.
+func ServeOllama(registry *core.PluginRegistry, address string, version string, apiKey string, corsOrigins []string) error {
+	if err := requireAPIKeyForBind(address, apiKey); err != nil {
+		return err
+	}
+	corsOrigins, err := cleanCORSOrigins(corsOrigins, apiKey)
+	if err != nil {
+		return err
+	}
+	return newOllamaEngine(registry, address, version, apiKey, corsOrigins).Run(address)
+}
+
+// newOllamaEngine makes the engine but does not start it, which lets
+// tests operate the routes. The address parameter is the /api/chat
+// forward target, not the listen address that Run gets. In production
+// the two are the same value.
+func newOllamaEngine(registry *core.PluginRegistry, address string, version string, apiKey string, corsOrigins []string) *gin.Engine {
+	r := newSecuredEngine(registry, apiKey, corsOrigins, "Starting Ollama-compatible API server without API key authentication. This may pose security risks.")
+
 	fabricDb := registry.Db
 	NewPatternsHandler(r, fabricDb.Patterns)
 	NewContextsHandler(r, fabricDb.Contexts)
@@ -208,21 +237,15 @@ func ServeOllama(registry *core.PluginRegistry, address string, version string) 
 		registry: registry,
 		r:        r,
 		addr:     &address,
+		apiKey:   apiKey,
 	}
-	// Ollama Endpoints
 	r.GET("/api/tags", typeConversion.ollamaTags)
 	r.GET("/api/version", func(c *gin.Context) {
 		c.Data(200, "application/json", fmt.Appendf(nil, "{\"%s\"}", version))
 	})
-	r.POST("/api/chat", typeConversion.ollamaChat)
+	r.POST("/api/chat", requireJSON, typeConversion.ollamaChat)
 
-	// Start server
-	err = r.Run(address)
-	if err != nil {
-		return err
-	}
-
-	return
+	return r
 }
 
 func (f APIConvert) ollamaTags(c *gin.Context) {
@@ -233,7 +256,7 @@ func (f APIConvert) ollamaTags(c *gin.Context) {
 	}
 	var response OllamaModel
 	for _, pattern := range patterns {
-		today := time.Now().Format("2024-11-25T12:07:58.915991813-05:00")
+		today := time.Now().Format(time.RFC3339Nano)
 		details := ModelDetails{
 			Families:          []string{"fabric"},
 			Family:            "fabric",
@@ -267,11 +290,10 @@ func (f APIConvert) ollamaChat(c *gin.Context) {
 	err = json.Unmarshal(body, &prompt)
 	if err != nil {
 		log.Printf(i18n.T("ollama_error_unmarshalling_body"), err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": i18n.T("ollama_error_endpoint")})
+		c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T("ollama_invalid_request_body")})
 		return
 	}
 
-	// Extract and validate num_ctx from options
 	numCtx, err := parseOllamaNumCtx(prompt.Options)
 	if err != nil {
 		log.Printf(i18n.T("ollama_invalid_num_ctx_in_request"), err)
@@ -282,19 +304,15 @@ func (f APIConvert) ollamaChat(c *gin.Context) {
 	now := time.Now()
 	var chat ChatRequest
 
-	// Extract variables from either top-level Variables field or Options.variables
 	variables := prompt.Variables
 	if variables == nil && prompt.Options != nil {
 		if optVars, ok := prompt.Options["variables"]; ok {
-			// Options.variables can be either a JSON string or a map
 			switch v := optVars.(type) {
 			case string:
-				// Parse JSON string into map
 				if err := json.Unmarshal([]byte(v), &variables); err != nil {
 					log.Printf(i18n.T("ollama_warning_parse_variables"), err)
 				}
 			case map[string]any:
-				// Convert map[string]any to map[string]string
 				variables = make(map[string]string)
 				for k, val := range v {
 					if s, ok := val.(string); ok {
@@ -305,44 +323,35 @@ func (f APIConvert) ollamaChat(c *gin.Context) {
 		}
 	}
 
-	if len(prompt.Messages) == 1 {
-		chat.Prompts = []PromptRequest{{
-			UserInput:   prompt.Messages[0].Content,
-			Vendor:      "",
-			Model:       "",
-			ContextName: "",
-			PatternName: strings.Split(prompt.Model, ":")[0],
-			Variables:   variables,
-		}}
-	} else if len(prompt.Messages) > 1 {
-		var content string
-		for _, msg := range prompt.Messages {
-			content = fmt.Sprintf("%s%s:%s\n", content, msg.Role, msg.Content)
+	if len(prompt.Messages) > 0 {
+		userInput := prompt.Messages[0].Content
+		if len(prompt.Messages) > 1 {
+			var b strings.Builder
+			for _, msg := range prompt.Messages {
+				fmt.Fprintf(&b, "%s:%s\n", msg.Role, msg.Content)
+			}
+			userInput = b.String()
 		}
 		chat.Prompts = []PromptRequest{{
-			UserInput:   content,
-			Vendor:      "",
-			Model:       "",
-			ContextName: "",
+			UserInput:   userInput,
 			PatternName: strings.Split(prompt.Model, ":")[0],
 			Variables:   variables,
 		}}
 	}
 
-	// Set context length from parsed num_ctx
 	chat.ModelContextLength = numCtx
 
 	fabricChatReq, err := json.Marshal(chat)
 	if err != nil {
 		log.Printf(i18n.T("ollama_error_marshalling_body"), err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": i18n.T("ollama_failed_create_request")})
 		return
 	}
 	var req *http.Request
 	baseURL, err := buildFabricChatURL(*f.addr)
 	if err != nil {
 		log.Printf(i18n.T("ollama_error_building_chat_url"), err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": i18n.T("ollama_failed_create_request")})
 		return
 	}
 	req, err = http.NewRequest("POST", fmt.Sprintf("%s/chat", baseURL), bytes.NewBuffer(fabricChatReq))
@@ -351,16 +360,24 @@ func (f APIConvert) ollamaChat(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": i18n.T("ollama_failed_create_request")})
 		return
 	}
+	req.Header.Set("Content-Type", "application/json")
+	if f.apiKey != "" {
+		req.Header.Set(APIKeyHeader, f.apiKey)
+	}
 
 	req = req.WithContext(c.Request.Context())
 
-	fabricRes, err := http.DefaultClient.Do(req)
+	fabricRes, err := fabricChatClient.Do(req)
 	if err != nil {
 		log.Printf(i18n.T("ollama_error_getting_chat_body"), err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": i18n.T("ollama_upstream_request_failed")})
 		return
 	}
 	defer fabricRes.Body.Close()
+
+	if prompt.Stream {
+		c.Header("Content-Type", "application/x-ndjson")
+	}
 
 	if fabricRes.StatusCode < http.StatusOK || fabricRes.StatusCode >= http.StatusMultipleChoices {
 		bodyBytes, readErr := io.ReadAll(fabricRes.Body)
@@ -370,17 +387,8 @@ func (f APIConvert) ollamaChat(c *gin.Context) {
 			log.Printf(i18n.T("ollama_upstream_non_2xx"), fabricRes.StatusCode, string(bodyBytes))
 		}
 
-		errorMessage := fmt.Sprintf(i18n.T("ollama_upstream_returned_status"), fabricRes.StatusCode)
-		if prompt.Stream {
-			_ = writeOllamaResponse(c, prompt.Model, fmt.Sprintf(i18n.T("ollama_error_prefix"), errorMessage), true)
-		} else {
-			c.JSON(fabricRes.StatusCode, gin.H{"error": errorMessage})
-		}
+		replyOllamaError(c, prompt, fabricRes.StatusCode, fmt.Sprintf(i18n.T("ollama_upstream_returned_status"), fabricRes.StatusCode))
 		return
-	}
-
-	if prompt.Stream {
-		c.Header("Content-Type", "application/x-ndjson")
 	}
 
 	var contentBuilder strings.Builder
@@ -404,12 +412,7 @@ func (f APIConvert) ollamaChat(c *gin.Context) {
 			return
 		}
 		if fabricResponse.Type == "error" {
-			if prompt.Stream {
-				// In streaming mode, propagate the upstream error via a final streaming chunk
-				_ = writeOllamaResponse(c, prompt.Model, fmt.Sprintf(i18n.T("ollama_error_prefix"), fabricResponse.Content), true)
-			} else {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": fabricResponse.Content})
-			}
+			replyOllamaError(c, prompt, http.StatusInternalServerError, fabricResponse.Content)
 			return
 		}
 		if fabricResponse.Type != "content" {
@@ -430,12 +433,7 @@ func (f APIConvert) ollamaChat(c *gin.Context) {
 		if strings.Contains(err.Error(), "token too long") {
 			errorMsg = i18n.T("ollama_sse_buffer_limit")
 		}
-		if prompt.Stream {
-			// In streaming mode, send the error in the same streaming format
-			_ = writeOllamaResponse(c, prompt.Model, fmt.Sprintf(i18n.T("ollama_error_prefix"), errorMsg), true)
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": errorMsg})
-		}
+		replyOllamaError(c, prompt, http.StatusInternalServerError, errorMsg)
 		return
 	}
 
@@ -468,15 +466,9 @@ func (f APIConvert) ollamaChat(c *gin.Context) {
 // and the complete message content. Used for both streaming and non-streaming final responses.
 func buildFinalOllamaResponse(model string, content string, duration int64) OllamaResponse {
 	return OllamaResponse{
-		Model:     model,
-		CreatedAt: time.Now().UTC().Format("2006-01-02T15:04:05.999999999Z"),
-		Message: struct {
-			Role    string `json:"role"`
-			Content string `json:"content"`
-		}(struct {
-			Role    string
-			Content string
-		}{Content: content, Role: "assistant"}),
+		Model:              model,
+		CreatedAt:          time.Now().UTC().Format("2006-01-02T15:04:05.999999999Z"),
+		Message:            OllamaMessage{Role: "assistant", Content: content},
 		DoneReason:         "stop",
 		Done:               true,
 		TotalDuration:      duration,
@@ -538,16 +530,20 @@ func writeOllamaResponse(c *gin.Context, model string, content string, done bool
 	response := OllamaResponse{
 		Model:     model,
 		CreatedAt: time.Now().UTC().Format("2006-01-02T15:04:05.999999999Z"),
-		Message: struct {
-			Role    string `json:"role"`
-			Content string `json:"content"`
-		}(struct {
-			Role    string
-			Content string
-		}{Content: content, Role: "assistant"}),
-		Done: done,
+		Message:   OllamaMessage{Role: "assistant", Content: content},
+		Done:      done,
 	}
 	return writeOllamaResponseStruct(c, response)
+}
+
+// replyOllamaError sends msg as a final prefixed NDJSON chunk in stream
+// mode, or as a JSON error body with status in other modes.
+func replyOllamaError(c *gin.Context, prompt OllamaRequestBody, status int, msg string) {
+	if prompt.Stream {
+		_ = writeOllamaResponse(c, prompt.Model, fmt.Sprintf(i18n.T("ollama_error_prefix"), msg), true)
+		return
+	}
+	c.JSON(status, gin.H{"error": msg})
 }
 
 // writeOllamaResponseStruct marshals the provided OllamaResponse and writes it
