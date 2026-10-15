@@ -15,12 +15,12 @@ type testVendor struct {
 	calls atomic.Int32
 }
 
-func (v *testVendor) GetName() string                                                                { return v.name }
-func (v *testVendor) GetSetupDescription() string                                                    { return "" }
-func (v *testVendor) IsConfigured() bool                                                             { return true }
-func (v *testVendor) Configure() error                                                               { return nil }
-func (v *testVendor) Setup() error                                                                   { return nil }
-func (v *testVendor) SetupFillEnvFileContent(*bytes.Buffer)                                          {}
+func (v *testVendor) GetName() string                       { return v.name }
+func (v *testVendor) GetSetupDescription() string           { return "" }
+func (v *testVendor) IsConfigured() bool                    { return true }
+func (v *testVendor) Configure() error                      { return nil }
+func (v *testVendor) Setup() error                          { return nil }
+func (v *testVendor) SetupFillEnvFileContent(*bytes.Buffer) {}
 func (v *testVendor) ListModels(context.Context) ([]string, error) {
 	v.calls.Add(1)
 	return []string{v.name + "-model"}, nil

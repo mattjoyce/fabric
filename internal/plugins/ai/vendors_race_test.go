@@ -14,12 +14,12 @@ type stubVendor struct {
 	name string
 }
 
-func (v *stubVendor) GetName() string                                                                { return v.name }
-func (v *stubVendor) GetSetupDescription() string                                                    { return "" }
-func (v *stubVendor) IsConfigured() bool                                                             { return true }
-func (v *stubVendor) Configure() error                                                               { return nil }
-func (v *stubVendor) Setup() error                                                                   { return nil }
-func (v *stubVendor) SetupFillEnvFileContent(*bytes.Buffer)                                          {}
+func (v *stubVendor) GetName() string                       { return v.name }
+func (v *stubVendor) GetSetupDescription() string           { return "" }
+func (v *stubVendor) IsConfigured() bool                    { return true }
+func (v *stubVendor) Configure() error                      { return nil }
+func (v *stubVendor) Setup() error                          { return nil }
+func (v *stubVendor) SetupFillEnvFileContent(*bytes.Buffer) {}
 func (v *stubVendor) ListModels(context.Context) ([]string, error) {
 	return []string{v.name + "-model"}, nil
 }
