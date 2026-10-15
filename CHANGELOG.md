@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.4.521 (2026-10-15)
+
+### PR [#2141](https://github.com/danielmiessler/Fabric/pull/2141) by [putramkti](https://github.com/putramkti) and [ksylvan](https://github.com/ksylvan): fix: handle carriage return input in interactive setup prompts
+
+- Fixed interactive setup hanging when terminals (such as kitty on macOS) send a bare carriage return instead of a newline; prompts now accept Enter reliably.
+- Added a `readLine` helper that terminates on either `\r` or `\n`, strips the `\n` from `\r\n` pairs, and shares a single `bufio.Reader` so buffered input is not lost between questions.
+- Simplified plugin input handling by removing redundant newline trimming from setup question answers.
+- Removed mutex locking from the shared standard input reader initialization.
+- Consolidated line-ending tests into table-driven LF, CRLF, and CR cases, replacing the standalone carriage-return and scripted setup question tests.
+
 ## v1.4.520 (2026-10-15)
 
 ### PR [#2101](https://github.com/danielmiessler/Fabric/pull/2101) by [shaun0927](https://github.com/shaun0927) and [ksylvan](https://github.com/ksylvan): fix(youtube): preserve ffmpeg frame timing in visual OCR cues
