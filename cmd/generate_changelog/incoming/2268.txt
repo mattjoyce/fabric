@@ -1,3 +1,0 @@
-### PR [#2268](https://github.com/danielmiessler/Fabric/pull/2268) by [shiftysheep](https://github.com/shiftysheep): fix(bedrock): handle reasoning content blocks
-
-- Fix(bedrock): skip reasoning response blocks

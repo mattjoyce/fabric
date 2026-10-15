@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.4.522 (2026-10-15)
+
+### PR [#2268](https://github.com/danielmiessler/Fabric/pull/2268) by [shiftysheep](https://github.com/shiftysheep): fix(bedrock): handle reasoning content blocks
+
+- Fix(bedrock): skip reasoning response blocks
+
 ## v1.4.521 (2026-10-15)
 
 ### PR [#2141](https://github.com/danielmiessler/Fabric/pull/2141) by [putramkti](https://github.com/putramkti) and [ksylvan](https://github.com/ksylvan): fix: handle carriage return input in interactive setup prompts
