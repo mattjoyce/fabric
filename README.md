@@ -31,6 +31,7 @@
 
 <p align="center">
   <strong>English</strong> ·
+  <a href="README.ar.md">العربية</a> ·
   <a href="README.zh.md">中文</a>
 </p>
 
@@ -363,9 +364,14 @@ Fabric supports a wide range of AI providers:
 
 - Abacus
 - AIML
+- API Route
+- Apple Foundation Models (local, macOS 27 or later: run `sudo fm license` once, then `fm serve --port 1976`; no API key; select it once in `fabric -S` to enable it)
 - Cerebras
+- Cheaper Inference
 - DeepSeek
+- DemonRoute
 - DigitalOcean
+- Eden AI
 - GrokAI
 - Groq
 - Langdock
@@ -373,8 +379,13 @@ Fabric supports a wide range of AI providers:
 - MiniMax
 - Mistral
 - Novita AI
+- OpenCode Go
+- OpenCode Zen
 - OpenRouter
+- Opper
+- OrcaRouter
 - Pzero
+- Requesty
 - SiliconCloud
 - Synthorai
 - Together
@@ -416,6 +427,7 @@ yt() {
     if [ "$#" -eq 0 ] || [ "$#" -gt 2 ]; then
         echo "Usage: yt [-t | --timestamps] youtube-link"
         echo "Use the '-t' flag to get the transcript with timestamps."
+        echo "Pipe to a pattern: yt URL | fabric -p extract_wisdom"
         return 1
     fi
 
@@ -425,6 +437,8 @@ yt() {
         shift
     fi
     local video_link="$1"
+    # Outputs the raw transcript to stdout so it can be piped to a pattern:
+    #   yt URL | fabric -p extract_wisdom
     fabric -y "$video_link" $transcript_flag
 }
 ```
@@ -503,20 +517,28 @@ function yt {
     process {
         if (-not $videoLink) {
             Write-Error "Usage: yt [-t | --timestamps] youtube-link"
+            Write-Host "Pipe to a pattern: yt URL | fabric -p extract_wisdom"
             return
         }
     }
 
     end {
         if ($videoLink) {
-            # Execute and allow output to flow through the pipeline
+            # Outputs the raw transcript to stdout so it can be piped to a pattern:
+            #   yt URL | fabric -p extract_wisdom
             fabric -y $videoLink $transcriptFlag
         }
     }
 }
 ```
 
-This also creates a `yt` alias that allows you to use `yt https://www.youtube.com/watch?v=4b0iet22VIk` to get transcripts, comments, and metadata.
+This also creates a `yt` helper that outputs a YouTube transcript to stdout. Pipe it to a pattern to process it with fabric:
+
+```shell
+yt https://www.youtube.com/watch?v=4b0iet22VIk | fabric -p extract_wisdom
+```
+
+Use `yt` without a pipe to review the raw transcript first.
 
 #### Save your files in markdown using aliases
 
@@ -575,13 +597,17 @@ fabric --setup
 
 Then [set your environmental variables](#environment-variables) as shown above.
 
-### Upgrading
+### Upgrading/Replacing
 
-The great thing about Go is that it's super easy to upgrade. Just run the same command you used to install it in the first place and you'll always get the latest version.
+The great thing about Go is that it's super easy to upgrade or replace an existing installation. Just run the same command you used to install it in the first place and you'll always get the latest version, automatically replacing the old one.
 
 ```bash
 go install github.com/danielmiessler/fabric/cmd/fabric@latest
 ```
+
+If you're replacing an existing installation, simply run the above command and Go will automatically replace the old version with the new one.
+
+**Important note**: If you run `fabric --setup` after upgrading, you may need to reconfigure some settings or keys if there are configuration changes between versions.
 
 ### Shell Completions
 
@@ -685,6 +711,10 @@ Application Options:
       --modelContextLength=         Model context length (only affects ollama)
   -o, --output=                     Output to file
       --output-session              Output the entire session (also a temporary one) to the output file
+      --extract                     Output only the first fenced code block from the response (full response if
+                                    none is found)
+      --extract-last                Output only the last fenced code block from the response (full response if
+                                    none is found)
   -n, --latest=                     Number of latest patterns to list
   -d, --changeDefaultModel          Change default model
   -y, --youtube=                    YouTube video or play list "URL" to grab transcript, comments from it and
@@ -704,11 +734,14 @@ Application Options:
   -g, --language=                   Specify the Language Code for the chat, e.g. -g=en -g=zh -g=pt-BR -g=pt-PT
   -u, --scrape_url=                 Scrape website URL to markdown using Jina AI
   -q, --scrape_question=            Search question using Jina AI
+      --serply_search=              Search Google using Serply and send the results to chat
+      --firecrawl_search=           Search the web using Firecrawl and send the top pages to chat as Markdown
   -e, --seed=                       Seed to be used for LMM generation
   -w, --wipecontext=                Wipe context
   -W, --wipesession=                Wipe session
       --printcontext=               Print context
       --printsession=               Print session
+      --print-prompt                Print the rendered prompt without sending it to a model
       --readability                 Convert HTML input into a clean, readable view
       --input-has-vars              Apply variables to user input
       --no-variable-replacement     Disable pattern variable replacement
@@ -717,6 +750,7 @@ Application Options:
       --serveOllama                 Serve the Fabric Rest API with ollama endpoints
       --address=                    The address to bind the REST API (default: :8080)
       --api-key=                    API key used to secure server routes
+      --cors-origins=               Browser origins that can call the server (repeatable; * for all)
       --config=                     Path to YAML config file
       --version                     Print current version
       --listextensions              List all registered extensions
@@ -774,6 +808,18 @@ echo "test input" | fabric --dry-run -p summarize
 ```
 
 This is useful for debugging patterns, checking prompt construction, and verifying input formatting before using API credits.
+
+### Prompt Export
+
+Use `--print-prompt` to render Fabric's composed prompt and exit before any model call:
+
+```bash
+echo "test input" | fabric --print-prompt -p summarize
+```
+
+This is useful when you want to reuse Fabric's prompt library with other CLI LLM tools or inspect the exact system and user message structure Fabric would compose.
+
+Some models need raw mode, which merges the system message into the user message. To show the structure for such a model, give the model with `-m` (or `FABRIC_MODEL_<PATTERN>`). Fabric then finds the vendor, which can send a model-list request. Without a model, the export shows the system and user messages separately, unless you set `--raw`.
 
 ### Extensions
 

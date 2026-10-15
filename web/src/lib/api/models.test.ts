@@ -20,10 +20,10 @@ describe('modelsApi.getAvailable', () => {
     ]);
   });
 
-  // The server sends null for the model list of a vendor that it can reach no
-  // models for, because an empty slice in Go becomes null in JSON. Ollama does
-  // this when it is in the configuration but has no models. One such vendor
-  // must not stop the models of the other vendors.
+  // The server sends null for the model list of a vendor with no models.
+  // A nil slice in Go becomes null in JSON. Ollama does this when it is in
+  // the configuration but serves no models. Skip such a vendor so that it
+  // does not hide the models of the other vendors.
   it('skips a vendor whose model list is null', async () => {
     vi.spyOn(api, 'fetch').mockResolvedValue({
       data: {

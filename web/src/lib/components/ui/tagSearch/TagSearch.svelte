@@ -11,7 +11,6 @@
   let data: PageData;
   let posts = data.posts || [];
 
-  // Extract all unique tags from posts
   $: {
     const tagSet = new Set<string>();
     posts?.forEach(post => {
@@ -20,7 +19,6 @@
     allTags = Array.from(tagSet);
   }
 
-  // Filter posts based on selected tags
   $: filteredPosts = posts?.filter(post => {
     if (selectedTags.length === 0) return true;
     return selectedTags.every(tag => 
@@ -28,7 +26,6 @@
     );
   }) || [];
 
-  // Filter posts based on search query
   $: searchResults = filteredPosts.filter(post => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();

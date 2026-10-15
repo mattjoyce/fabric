@@ -115,8 +115,7 @@ func (o *PluginBase) Setup() (err error) {
 		return
 	}
 
-	// After Setup, run ConfigureCustom if present, but skip re-validation
-	// since Ask() already validated user input (or allowed explicit reset)
+	// After Setup, do not re-validate the user input. Ask() validates input and allows explicit reset.
 	if o.ConfigureCustom != nil {
 		err = o.ConfigureCustom()
 	}
@@ -146,8 +145,6 @@ func NewSetting(envVariable string, required bool) *Setting {
 		Required:    required,
 	}
 }
-
-// In plugins/plugin.go
 
 type Setting struct {
 	EnvVariable string
@@ -260,8 +257,7 @@ func (o *SetupQuestion) OnAnswerWithReset(answer string, isReset bool) (err erro
 			return
 		}
 	}
-	// Skip validation when explicitly resetting a value - the user intentionally
-	// wants to clear the value even if it's required
+	// Do not validate when the user explicitly resets a required value.
 	if isReset {
 		return nil
 	}
@@ -345,6 +341,7 @@ func BuildEnvVariable(name string) string {
 	name = strings.ToUpper(name)
 	name = strings.ReplaceAll(name, " ", "_")
 	name = strings.ReplaceAll(name, "-", "_")
+	name = strings.ReplaceAll(name, ".", "_")
 	return name
 }
 

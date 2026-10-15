@@ -1,8 +1,8 @@
 import { writable } from 'svelte/store';
 
 // Skeleton 5 removed the drawer utility and its store. This store keeps the
-// small part of the Skeleton v2 API that this project used, so that the call
-// sites stay the same: drawerStore.open(), drawerStore.close(), and a read of
+// part of the Skeleton v2 API that this project used. The call sites stay
+// the same: drawerStore.open(), drawerStore.close(), and a read of
 // $drawerStore.open.
 
 export interface DrawerSettings {

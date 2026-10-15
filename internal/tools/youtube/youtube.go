@@ -2,11 +2,11 @@
 //
 // Requirements:
 // - yt-dlp: Required for transcript extraction (must be installed separately)
-// - YouTube API key: Optional, only needed for comments and metadata extraction
+// - ffmpeg and tesseract: Required, with yt-dlp, for visual extraction
+// - YouTube API key: Optional, only needed for comments, metadata, duration, and playlists
 //
-// The implementation uses yt-dlp for reliable transcript extraction and the YouTube API
-// for comments/metadata. Old YouTube scraping methods have been removed due to
-// frequent changes and rate limiting.
+// The implementation uses yt-dlp for transcript extraction and the YouTube API
+// for comments/metadata.
 package youtube
 
 import (
@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -44,22 +45,24 @@ var videoPatternRegex *regexp.Regexp
 var playlistPatternRegex *regexp.Regexp
 var vttTagRegex *regexp.Regexp
 var durationRegex *regexp.Regexp
+var ffmpegPtsTimeRegex *regexp.Regexp
 
 const TimeGapForRepeats = 10 // seconds
 
 func init() {
-	// Match timestamps like "00:00:01.234" or just numbers or sequence numbers
+	// A cue sequence number, or a timestamp such as "01:02" or "00:00:01.234".
 	timestampRegex = regexp.MustCompile(`^\d+$|^\d{1,2}:\d{2}(:\d{2})?(\.\d{3})?$`)
-	// Match language-specific VTT files like .en.vtt, .es.vtt, .en-US.vtt, .pt-BR.vtt
+	// Language-tagged VTT file names such as .en.vtt or .pt-BR.vtt.
 	languageFileRegex = regexp.MustCompile(`\.[a-z]{2}(-[A-Z]{2})?\.vtt$`)
-	// YouTube video ID pattern
+	// Captures the video ID from watch, live, shorts, embed, v, and youtu.be URLs.
 	videoPatternRegex = regexp.MustCompile(`(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:live\/|[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|(?:s(?:horts)\/)|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]*)`)
-	// YouTube playlist ID pattern
 	playlistPatternRegex = regexp.MustCompile(`[?&]list=([a-zA-Z0-9_-]+)`)
-	// VTT formatting tags like <c.colorE5E5E5>, </c>, etc.
+	// VTT formatting tags such as <c.colorE5E5E5> and </c>.
 	vttTagRegex = regexp.MustCompile(`<[^>]*>`)
-	// YouTube duration format PT1H2M3S
+	// ISO 8601 duration from the Data API, such as PT1H2M3S.
 	durationRegex = regexp.MustCompile(`(?i)PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?`)
+	// Frame time on an ffmpeg showinfo line. ParseFloat checks the value.
+	ffmpegPtsTimeRegex = regexp.MustCompile(`Parsed_showinfo[^\n]*\bpts_time:(\S+)`)
 }
 
 func NewYouTube() (ret *YouTube) {
@@ -81,6 +84,9 @@ func NewYouTube() (ret *YouTube) {
 type YouTube struct {
 	*plugins.PluginBase
 	ApiKey *plugins.SetupQuestion
+	// YtDlpArgs holds the yt-dlp arguments from the --yt-dlp-args flag or the
+	// config file. GrabTranscript and GrabTranscriptWithTimestamps use them.
+	YtDlpArgs string
 
 	normalizeRegex *regexp.Regexp
 	service        *youtube.Service
@@ -100,13 +106,11 @@ func (o *YouTube) initService() (err error) {
 }
 
 func (o *YouTube) GetVideoOrPlaylistId(url string) (videoId string, playlistId string, err error) {
-	// Extract video ID using pre-compiled regex
 	videoMatch := videoPatternRegex.FindStringSubmatch(url)
 	if len(videoMatch) > 1 {
 		videoId = videoMatch[1]
 	}
 
-	// Extract playlist ID using pre-compiled regex
 	playlistMatch := playlistPatternRegex.FindStringSubmatch(url)
 	if len(playlistMatch) > 1 {
 		playlistId = playlistMatch[1]
@@ -118,9 +122,8 @@ func (o *YouTube) GetVideoOrPlaylistId(url string) (videoId string, playlistId s
 	return
 }
 
-// extractAndValidateVideoId extracts a video ID from the given URL and validates
-// that the URL points to a video rather than a playlist-only resource.
-// It returns an error if the URL is invalid or contains only playlist information.
+// extractAndValidateVideoId returns the video ID in url. It returns an error
+// when url is invalid or names only a playlist.
 func (o *YouTube) extractAndValidateVideoId(url string) (videoId string, err error) {
 	var playlistId string
 	if videoId, playlistId, err = o.GetVideoOrPlaylistId(url); err != nil {
@@ -143,11 +146,12 @@ func (o *YouTube) GrabTranscriptForUrl(url string, language string) (ret string,
 	return o.GrabTranscript(videoId, language)
 }
 
-// GrabTranscript retrieves the transcript for the specified video ID using yt-dlp.
+// GrabTranscript retrieves the transcript for the specified video ID using yt-dlp
+// and the arguments in the YtDlpArgs field.
 // The language parameter specifies the preferred subtitle language code (e.g., "en", "es").
 // It returns the transcript text or an error if the transcript cannot be retrieved.
 func (o *YouTube) GrabTranscript(videoId string, language string) (ret string, err error) {
-	return o.GrabTranscriptWithArgs(videoId, language, "")
+	return o.GrabTranscriptWithArgs(videoId, language, o.YtDlpArgs)
 }
 
 // GrabTranscriptWithArgs retrieves the transcript for the specified video ID using yt-dlp
@@ -160,11 +164,12 @@ func (o *YouTube) GrabTranscriptWithArgs(videoId string, language string, additi
 }
 
 // GrabTranscriptWithTimestamps retrieves the transcript with timestamps for the specified
-// video ID using yt-dlp. The language parameter specifies the preferred subtitle language code.
+// video ID using yt-dlp and the arguments in the YtDlpArgs field. The language parameter
+// specifies the preferred subtitle language code.
 // Each line in the returned transcript is prefixed with a timestamp in [HH:MM:SS] format.
 // It returns the timestamped transcript text or an error if the transcript cannot be retrieved.
 func (o *YouTube) GrabTranscriptWithTimestamps(videoId string, language string) (ret string, err error) {
-	return o.GrabTranscriptWithTimestampsWithArgs(videoId, language, "")
+	return o.GrabTranscriptWithTimestampsWithArgs(videoId, language, o.YtDlpArgs)
 }
 
 // GrabTranscriptWithTimestampsWithArgs retrieves the transcript with timestamps for the specified
@@ -200,40 +205,44 @@ func detectError(ytOutput io.Reader) error {
 	return nil
 }
 
-func noLangs(args []string) []string {
-	var (
-		i int
-		v string
-	)
-	for i, v = range args {
-		if strings.Contains(v, "--sub-langs") {
-			break
-		}
+// ytDlpLangArgs returns the built-in --sub-langs flag for language. yt-dlp
+// does not replace a repeated --sub-langs flag. It adds the values together.
+// So the function returns nil when the user arguments set the languages.
+func ytDlpLangArgs(language string, userArgs []string) []string {
+	userSetsLangs := slices.ContainsFunc(userArgs, func(a string) bool {
+		return strings.HasPrefix(a, "--sub-lang")
+	})
+	if language == "" || userSetsLangs {
+		return nil
 	}
-	if i == 0 || i == len(args)-1 {
-		return args
+	langMatch := language
+	if len(language) > 2 {
+		langMatch = language[:2]
 	}
-	return append(args[0:i], args[i+2:]...)
+	langOpts := language + "," + langMatch + ".*"
+	if langMatch != language {
+		langOpts += "," + langMatch
+	}
+	return []string{"--sub-langs", langOpts}
 }
 
-// tryMethodYtDlpInternal is a helper function to reduce duplication between
-// tryMethodYtDlp and tryMethodYtDlpWithTimestamps.
+// tryMethodYtDlpInternal downloads the subtitles for videoId with yt-dlp, then
+// applies processVTTFileFunc to the VTT file.
 func (o *YouTube) tryMethodYtDlpInternal(videoId string, language string, additionalArgs string, processVTTFileFunc func(filename string) (string, error)) (ret string, err error) {
-	// Check if yt-dlp is available
 	if _, err = exec.LookPath("yt-dlp"); err != nil {
 		err = errors.New(i18n.T("youtube_ytdlp_not_found"))
 		return
 	}
 
-	// Create a temporary directory for yt-dlp output (cross-platform)
-	tempDir := filepath.Join(os.TempDir(), "fabric-youtube-"+videoId)
-	if err = os.MkdirAll(tempDir, 0755); err != nil {
+	// Make a new temporary folder with a random name and mode 0700. Another
+	// local user cannot know the name, so cannot put a file in it first.
+	tempDir, err := os.MkdirTemp("", "fabric-youtube-")
+	if err != nil {
 		err = fmt.Errorf("%s", fmt.Sprintf(i18n.T("youtube_failed_create_temp_dir"), err))
 		return
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Use yt-dlp to get transcript
 	videoURL := "https://www.youtube.com/watch?v=" + videoId
 	outputPath := filepath.Join(tempDir, "%(title)s.%(ext)s")
 
@@ -244,31 +253,17 @@ func (o *YouTube) tryMethodYtDlpInternal(videoId string, language string, additi
 		"-o", outputPath,
 	}
 
-	args := append([]string{}, baseArgs...)
-
-	// Add built-in language selection first
-	if language != "" {
-		langMatch := language[:2]
-		langOpts := language + "," + langMatch + ".*"
-		if langMatch != language {
-			langOpts += "," + langMatch
-		}
-		args = append(args, "--sub-langs", langOpts)
-	}
-
-	// Add user-provided arguments last so they take precedence
+	var userArgs []string
 	if additionalArgs != "" {
-		additionalArgsList, err := shellquote.Split(additionalArgs)
-		if err != nil {
+		if userArgs, err = shellquote.Split(additionalArgs); err != nil {
 			return "", fmt.Errorf("%s", fmt.Sprintf(i18n.T("youtube_invalid_ytdlp_arguments"), err))
 		}
-		args = append(args, additionalArgsList...)
 	}
-
-	args = append(args, videoURL)
+	langArgs := ytDlpLangArgs(language, userArgs)
 
 	for retry := 1; retry >= 0; retry-- {
 		var ytOutput []byte
+		args := slices.Concat(baseArgs, langArgs, userArgs, []string{videoURL})
 		cmd := exec.Command("yt-dlp", args...)
 		debuglog.Debug(debuglog.Trace, "yt-dlp %+v\n", cmd.Args)
 		ytOutput, err = cmd.CombinedOutput()
@@ -276,13 +271,12 @@ func (o *YouTube) tryMethodYtDlpInternal(videoId string, language string, additi
 		if err = detectError(ytReader); err == nil {
 			break
 		}
-		args = noLangs(args)
+		// Retry without the built-in language filter.
+		langArgs = nil
 	}
 	if err != nil {
 		return
 	}
-	// Find VTT files using cross-platform approach
-	// Try to find files with the requested language first, but fall back to any VTT file
 	vttFiles, err := o.findVTTFilesWithFallback(tempDir, language)
 	if err != nil {
 		return "", err
@@ -304,21 +298,18 @@ func (o *YouTube) readAndCleanVTTFile(filename string) (ret string, err error) {
 		return
 	}
 
-	// Convert VTT to plain text
 	lines := strings.Split(string(content), "\n")
 	var textBuilder strings.Builder
 	seenSegments := make(map[string]struct{})
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		// Skip WEBVTT header, timestamps, and empty lines
 		if line == "" || line == "WEBVTT" || strings.Contains(line, "-->") ||
 			strings.HasPrefix(line, "NOTE") || strings.HasPrefix(line, "STYLE") ||
 			strings.HasPrefix(line, "Kind:") || strings.HasPrefix(line, "Language:") ||
 			isTimeStamp(line) {
 			continue
 		}
-		// Remove VTT formatting tags
 		line = removeVTTTags(line)
 		if line != "" {
 			if _, exists := seenSegments[line]; !exists {
@@ -342,28 +333,24 @@ func (o *YouTube) readAndFormatVTTWithTimestamps(filename string) (ret string, e
 		return
 	}
 
-	// Parse VTT and preserve timestamps
 	lines := strings.Split(string(content), "\n")
 	var textBuilder strings.Builder
 	var currentTimestamp string
-	// Track content with timestamps to allow repeats after significant time gaps
-	// This preserves legitimate repeated content (choruses, recurring phrases, etc.)
-	// while still filtering out immediate duplicates from VTT formatting issues
-	seenSegments := make(map[string]string) // text -> last timestamp seen
+	// Map each line to the timestamp where it last appeared. A repeat within
+	// TimeGapForRepeats seconds is a VTT duplicate. A later repeat is real
+	// content, such as a chorus.
+	seenSegments := make(map[string]string)
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 
-		// Skip WEBVTT header and empty lines
 		if line == "" || line == "WEBVTT" || strings.HasPrefix(line, "NOTE") ||
 			strings.HasPrefix(line, "STYLE") || strings.HasPrefix(line, "Kind:") ||
 			strings.HasPrefix(line, "Language:") {
 			continue
 		}
 
-		// Check if this line is a timestamp
 		if strings.Contains(line, "-->") {
-			// Extract start time for this segment
 			parts := strings.Split(line, " --> ")
 			if len(parts) >= 1 {
 				currentTimestamp = formatVTTTimestamp(parts[0])
@@ -371,20 +358,16 @@ func (o *YouTube) readAndFormatVTTWithTimestamps(filename string) (ret string, e
 			continue
 		}
 
-		// Skip numeric sequence identifiers
+		// Skip cue sequence numbers.
 		if isTimeStamp(line) && !strings.Contains(line, ":") {
 			continue
 		}
 
-		// This should be transcript text
 		if line != "" {
-			// Remove VTT formatting tags
 			cleanText := removeVTTTags(line)
 			if cleanText != "" && currentTimestamp != "" {
-				// Check if we should include this segment
 				shouldInclude := true
 				if lastTimestamp, exists := seenSegments[cleanText]; exists {
-					// Calculate time difference to determine if this is a legitimate repeat
 					if !shouldIncludeRepeat(lastTimestamp, currentTimestamp) {
 						shouldInclude = false
 					}
@@ -407,7 +390,7 @@ func (o *YouTube) readAndFormatVTTWithTimestamps(filename string) (ret string, e
 }
 
 func formatVTTTimestamp(vttTime string) string {
-	// VTT timestamps are in format "00:00:01.234" - convert to "00:00:01"
+	// Drops the milliseconds, so "00:00:01.234" becomes "00:00:01".
 	parts := strings.Split(vttTime, ".")
 	if len(parts) > 0 {
 		return parts[0]
@@ -420,30 +403,25 @@ func isTimeStamp(s string) bool {
 }
 
 func removeVTTTags(s string) string {
-	// Remove VTT tags like <c.colorE5E5E5>, </c>, etc.
 	return vttTagRegex.ReplaceAllString(s, "")
 }
 
-// shouldIncludeRepeat determines if repeated content should be included based on time gap
+// shouldIncludeRepeat reports whether at least TimeGapForRepeats seconds
+// separate the two timestamps.
 func shouldIncludeRepeat(lastTimestamp, currentTimestamp string) bool {
-	// Parse timestamps to calculate time difference
 	lastSeconds, err1 := parseTimestampToSeconds(lastTimestamp)
 	currentSeconds, err2 := parseTimestampToSeconds(currentTimestamp)
 
 	if err1 != nil || err2 != nil {
-		// If we can't parse timestamps, err on the side of inclusion
+		// Keep the line when a timestamp does not parse.
 		return true
 	}
 
-	// Allow repeats if there's at least a TimeGapForRepeats gap
-	// This threshold can be adjusted based on use case:
-	// - 10 seconds works well for most content
-	// - Could be made configurable in the future
 	timeDiffSeconds := currentSeconds - lastSeconds
 	return timeDiffSeconds >= TimeGapForRepeats
 }
 
-// parseTimestampToSeconds converts timestamp string (HH:MM:SS or MM:SS) to total seconds
+// parseTimestampToSeconds converts an HH:MM:SS or MM:SS timestamp to seconds.
 func parseTimestampToSeconds(timestamp string) (int, error) {
 	parts := strings.Split(timestamp, ":")
 	if len(parts) < 2 || len(parts) > 3 {
@@ -454,7 +432,6 @@ func parseTimestampToSeconds(timestamp string) (int, error) {
 	var err error
 
 	if len(parts) == 3 {
-		// HH:MM:SS format
 		if hours, err = strconv.Atoi(parts[0]); err != nil {
 			return 0, err
 		}
@@ -465,7 +442,6 @@ func parseTimestampToSeconds(timestamp string) (int, error) {
 			return 0, err
 		}
 	} else {
-		// MM:SS format
 		if minutes, err = strconv.Atoi(parts[0]); err != nil {
 			return 0, err
 		}
@@ -482,11 +458,9 @@ func parseSeconds(secondsStr string) (int, error) {
 		return 0, errors.New(i18n.T("youtube_empty_seconds_string"))
 	}
 
-	// Extract integer part (before decimal point if present)
 	intPart := secondsStr
 	if idx := strings.Index(secondsStr, "."); idx != -1 {
 		if idx == 0 {
-			// Handle cases like ".5" -> treat as "0"
 			intPart = "0"
 		} else {
 			intPart = secondsStr[:idx]
@@ -499,6 +473,38 @@ func parseSeconds(secondsStr string) (int, error) {
 	}
 
 	return seconds, nil
+}
+
+func parseFFmpegFrameTimes(logOutput string) []float64 {
+	matches := ffmpegPtsTimeRegex.FindAllStringSubmatch(logOutput, -1)
+	frameTimes := make([]float64, 0, len(matches))
+	for _, match := range matches {
+		frameTime, err := strconv.ParseFloat(match[1], 64)
+		if err != nil {
+			continue
+		}
+		frameTimes = append(frameTimes, frameTime)
+	}
+	return frameTimes
+}
+
+func formatCueTimestamp(seconds float64) string {
+	ms := int(max(seconds, 0)*1000 + 0.5)
+	return fmt.Sprintf("%02d:%02d:%02d.%03d", ms/3600000, ms/60000%60, ms/1000%60, ms%1000)
+}
+
+func visualCueRange(frameTimes []float64, index int) (string, string) {
+	start := float64(index)
+	if index < len(frameTimes) {
+		start = frameTimes[index]
+	}
+
+	end := start + 0.999
+	if index+1 < len(frameTimes) && frameTimes[index+1] > start {
+		end = frameTimes[index+1] - 0.001
+	}
+
+	return formatCueTimestamp(start), formatCueTimestamp(end)
 }
 
 func (o *YouTube) GrabComments(videoId string) (ret []string, err error) {
@@ -605,7 +611,6 @@ func (o *YouTube) Grab(url string, options *Options) (ret *VideoInfo, err error)
 	}
 
 	if options.Visual {
-		// Currently defaults to 'en' and no extra args, similar to transcript default behavior in Grab
 		if ret.VisualText, err = o.GrabVisual(videoId, options.Lang, options.YtDlpArgs, options.VisualSensitivity, options.VisualFps); err != nil {
 			return
 		}
@@ -659,12 +664,10 @@ func (o *YouTube) SaveVideosToCSV(filename string, videos []*VideoMeta) (err err
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
 
-	// Write headers
 	if err = writer.Write([]string{"VideoID", "Title"}); err != nil {
 		return
 	}
 
-	// Write video data
 	for _, record := range videos {
 		if err = writer.Write([]string{record.Id, record.Title}); err != nil {
 			return
@@ -711,18 +714,20 @@ func (o *YouTube) normalizeFileName(name string) string {
 
 }
 
-// findVTTFilesWithFallback searches for VTT files, handling fallback scenarios
-// where the requested language might not be available
+// findVTTFilesWithFallback returns one VTT file from dir. When requestedLanguage
+// is set, it prefers a file tagged with that language, then any language-tagged
+// file. Otherwise it returns the first file found.
 func (o *YouTube) findVTTFilesWithFallback(dir, requestedLanguage string) ([]string, error) {
 	var vttFiles []string
 
-	// Walk through the directory to find VTT files
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		if !info.IsDir() && strings.HasSuffix(strings.ToLower(path), ".vtt") {
+		// Use only regular files. Do not follow a .vtt symlink, because it can
+		// point to a file outside the folder.
+		if info.Mode().IsRegular() && strings.HasSuffix(strings.ToLower(path), ".vtt") {
 			vttFiles = append(vttFiles, path)
 		}
 		return nil
@@ -736,28 +741,22 @@ func (o *YouTube) findVTTFilesWithFallback(dir, requestedLanguage string) ([]str
 		return nil, errors.New(i18n.T("youtube_no_vtt_files_found"))
 	}
 
-	// If no specific language requested, return the first file
 	if requestedLanguage == "" {
 		return []string{vttFiles[0]}, nil
 	}
 
-	// First, try to find files with the requested language
 	for _, file := range vttFiles {
 		if strings.Contains(file, "."+requestedLanguage+".vtt") {
 			return []string{file}, nil
 		}
 	}
 
-	// If requested language not found, check if we have any language-specific files
-	// This handles the fallback case where yt-dlp downloaded a different language
 	for _, file := range vttFiles {
-		// Look for any language pattern (e.g., .en.vtt, .es.vtt, etc.)
 		if languageFileRegex.MatchString(file) {
 			return []string{file}, nil
 		}
 	}
 
-	// If no language-specific files found, return the first VTT file
 	return []string{vttFiles[0]}, nil
 }
 
@@ -911,20 +910,27 @@ func (o *YouTube) GrabVisual(videoId string, language string, additionalArgs str
 
 	var filter string
 	if fps > 0 {
-		filter = fmt.Sprintf("fps=%d", fps)
+		filter = fmt.Sprintf("fps=%d,showinfo", fps)
 	} else {
-		filter = fmt.Sprintf("select='gt(scene,%f)'", sensitivity)
+		filter = fmt.Sprintf("select='gt(scene,%f)',showinfo", sensitivity)
 	}
 
 	framePattern := filepath.Join(tempDir, "frame_%04d.jpg")
 	cmdFfmpeg := exec.CommandContext(ctx, "ffmpeg", "-i", streamUrl, "-vf", filter, "-fps_mode", "vfr", framePattern)
-	if out, err := cmdFfmpeg.CombinedOutput(); err != nil {
-		return "", fmt.Errorf(i18n.T("youtube_ffmpeg_frame_extraction_failed"), err, string(out))
+	ffmpegOutput, err := cmdFfmpeg.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf(i18n.T("youtube_ffmpeg_frame_extraction_failed"), err, string(ffmpegOutput))
 	}
+	frameTimes := parseFFmpegFrameTimes(string(ffmpegOutput))
 
 	files, err := filepath.Glob(filepath.Join(tempDir, "frame_*.jpg"))
 	if err != nil {
 		return "", err
+	}
+	// Use the frame times only when each frame file has one time. If not, use the frame index for all cues.
+	if len(frameTimes) != len(files) {
+		debuglog.Debug(debuglog.Detailed, "ffmpeg gave %d frame times for %d frames; using frame index\n", len(frameTimes), len(files))
+		frameTimes = nil
 	}
 
 	var wg sync.WaitGroup
@@ -967,11 +973,8 @@ func (o *YouTube) GrabVisual(videoId string, language string, additionalArgs str
 	var sb strings.Builder
 	for i, text := range results {
 		if text != "" {
-			secs := i
-			hours := secs / 3600
-			mins := (secs % 3600) / 60
-			sec := secs % 60
-			sb.WriteString(fmt.Sprintf("\n%02d:%02d:%02d.000 --> %02d:%02d:%02d.999\n", hours, mins, sec, hours, mins, sec))
+			start, end := visualCueRange(frameTimes, i)
+			sb.WriteString(fmt.Sprintf("\n%s --> %s\n", start, end))
 			sb.WriteString(i18n.T("youtube_visual_frame_cue"))
 			sb.WriteString("\n")
 			sb.WriteString(text)

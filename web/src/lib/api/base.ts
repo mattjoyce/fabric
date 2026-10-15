@@ -9,7 +9,6 @@ interface APIResponse<T> {
   error?: string;
 }
 
-// Define and export the base api object
 export const api = {
   async fetch<T>(endpoint: string, options: RequestInit = {}): Promise<APIResponse<T>> {
     const response = await fetch(`/api${endpoint}`, {
@@ -46,8 +45,8 @@ export const api = {
     const reader = response.body?.getReader();
     if (!reader) throw new Error('Response body is null');
 
-    // Decode in streaming mode: a multi-byte UTF-8 rune split across network
-    // chunks is otherwise decoded as two halves and corrupted into U+FFFD.
+    // Keep one decoder in streaming mode. If not, a multi-byte UTF-8 rune
+    // divided between two network chunks becomes U+FFFD.
     const decoder = new TextDecoder();
     while (true) {
       const { done, value } = await reader.read();

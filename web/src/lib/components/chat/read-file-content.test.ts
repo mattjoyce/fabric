@@ -38,11 +38,11 @@ describe('readFileContent', () => {
   });
 });
 
-// The repository has no browser test runner, so these tests pin the chat
-// boundary at the source level: the component has no sendMessage path, and
-// handleSubmit holds the one streamChat call. Together with the seam tests
-// above, this proves that attachment parses without a chat request and that
-// one submit sends one request.
+// The repository has no browser test runner, so these tests check the
+// ChatInput source text. The component has no sendMessage path, and
+// handleSubmit holds the one streamChat call. Together with the seam tests,
+// this shows that an attachment parses without a chat request. It also
+// shows that one submit sends one request.
 describe('ChatInput chat boundary', () => {
   const source = readFileSync(new URL('./ChatInput.svelte', import.meta.url), 'utf8');
 

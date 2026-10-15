@@ -17,9 +17,9 @@
 </script>
 
 <!-- ToastContainer holds the position for the group. This element must stay in
-  the flow of that container, because a fixed position here would put every
-  toast in the same corner, one on top of another, and would also stop the
-  spacing that the container sets between them. -->
+  the flow of that container. A fixed position here would put every toast in the
+  same corner, one on top of another. It would also remove the spacing that the
+  container sets between them. -->
 <div
   class="p-4 rounded-lg shadow-lg"
   class:bg-green-100={toast.type === 'success'}

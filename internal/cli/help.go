@@ -12,9 +12,10 @@ import (
 	"github.com/jessevdk/go-flags"
 )
 
-// flagDescriptionMap maps flag names to their i18n keys
+// flagDescriptionMap maps long flag names to i18n keys. A flag that is missing here shows its struct tag description.
 var flagDescriptionMap = map[string]string{
 	"pattern":                    "choose_pattern_from_available",
+	"workflow":                   "workflow_file_help",
 	"variable":                   "pattern_variables_help",
 	"context":                    "choose_context_from_available",
 	"session":                    "choose_session_from_available",
@@ -36,8 +37,11 @@ var flagDescriptionMap = map[string]string{
 	"model":                      "choose_model",
 	"vendor":                     "specify_vendor_for_model",
 	"modelContextLength":         "model_context_length_ollama",
+	"maxTokens":                  "max_tokens_help",
 	"output":                     "output_to_file",
 	"output-session":             "output_entire_session",
+	"extract":                    "extract_first_code_block",
+	"extract-last":               "extract_last_code_block",
 	"latest":                     "number_of_latest_patterns",
 	"changeDefaultModel":         "change_default_model",
 	"youtube":                    "youtube_url_help",
@@ -54,11 +58,14 @@ var flagDescriptionMap = map[string]string{
 	"language":                   "specify_language_code",
 	"scrape_url":                 "scrape_website_url",
 	"scrape_question":            "search_question_jina",
+	"serply_search":              "serply_search_help",
+	"firecrawl_search":           "firecrawl_search_help",
 	"seed":                       "seed_for_lmm_generation",
 	"wipecontext":                "wipe_context",
 	"wipesession":                "wipe_session",
 	"printcontext":               "print_context",
 	"printsession":               "print_session",
+	"print-prompt":               "print_rendered_prompt",
 	"readability":                "convert_html_readability",
 	"input-has-vars":             "apply_variables_to_input",
 	"no-variable-replacement":    "disable_pattern_variable_replacement",
@@ -67,6 +74,7 @@ var flagDescriptionMap = map[string]string{
 	"serveOllama":                "serve_fabric_api_ollama_endpoints",
 	"address":                    "address_to_bind_rest_api",
 	"api-key":                    "api_key_secure_server_routes",
+	"cors-origins":               "cors_origins_help",
 	"config":                     "path_to_yaml_config",
 	"version":                    "print_current_version",
 	"listextensions":             "list_all_registered_extensions",
@@ -126,22 +134,19 @@ func (h *TranslatedHelpWriter) WriteHelp() {
 	fmt.Fprintf(h.writer, "  -h, --help                        %s\n", i18n.T("help_message"))
 }
 
-// getTranslatedDescription gets the translated description for a flag
 func (h *TranslatedHelpWriter) getTranslatedDescription(flagName string) string {
 	if i18nKey, exists := flagDescriptionMap[flagName]; exists {
 		return i18n.T(i18nKey)
 	}
 
-	// Fallback 1: Try to get original description from struct tag
 	if desc := h.getOriginalDescription(flagName); desc != "" {
 		return desc
 	}
 
-	// Fallback 2: Provide a user-friendly default message
 	return i18n.T("no_description_available")
 }
 
-// getOriginalDescription retrieves the original description from struct tags
+// getOriginalDescription returns the description struct tag, which is the untranslated text.
 func (h *TranslatedHelpWriter) getOriginalDescription(flagName string) string {
 	flagsType := reflect.TypeFor[Flags]()
 
@@ -160,27 +165,24 @@ func (h *TranslatedHelpWriter) getOriginalDescription(flagName string) string {
 
 // CustomHelpHandler handles help output with translations
 func CustomHelpHandler(parser *flags.Parser, writer io.Writer) {
-	// Initialize i18n system with detected language if not already initialized
 	ensureI18nInitialized()
 
 	helpWriter := NewTranslatedHelpWriter(parser, writer)
 	helpWriter.WriteHelp()
 }
 
-// ensureI18nInitialized initializes the i18n system if not already done
+// ensureI18nInitialized initializes i18n before Cli runs, because help output happens during flag parsing.
 func ensureI18nInitialized() {
-	// Try to detect language from command line args or environment
 	lang := detectLanguageFromArgs()
 	if lang == "" {
-		// Try to detect from environment variables
 		lang = detectLanguageFromEnv()
 	}
 
-	// Initialize i18n with detected language (or empty for system default)
+	// An empty lang makes i18n.Init detect the system locale.
 	i18n.Init(lang)
 }
 
-// detectLanguageFromArgs looks for --language/-g flag in os.Args
+// detectLanguageFromArgs returns the value of --language, -g, or the Windows /g form from os.Args.
 func detectLanguageFromArgs() string {
 	args := os.Args[1:]
 	for i, arg := range args {
@@ -201,13 +203,12 @@ func detectLanguageFromArgs() string {
 	return ""
 }
 
-// detectLanguageFromEnv detects language from environment variables
+// detectLanguageFromEnv returns the language part of LC_ALL, LC_MESSAGES, or LANG.
 func detectLanguageFromEnv() string {
-	// Check standard locale environment variables
 	envVars := []string{"LC_ALL", "LC_MESSAGES", "LANG"}
 	for _, envVar := range envVars {
 		if value := os.Getenv(envVar); value != "" {
-			// Extract language code from locale (e.g., "es_ES.UTF-8" -> "es")
+			// "es_ES.UTF-8" becomes "es".
 			if strings.Contains(value, "_") {
 				return strings.Split(value, "_")[0]
 			}
@@ -219,9 +220,7 @@ func detectLanguageFromEnv() string {
 	return ""
 }
 
-// writeAllFlags writes all flags with translated descriptions
 func (h *TranslatedHelpWriter) writeAllFlags() {
-	// Use direct reflection on the Flags struct to get all flag definitions
 	flagsType := reflect.TypeFor[Flags]()
 
 	for field := range flagsType.Fields() {
@@ -230,13 +229,11 @@ func (h *TranslatedHelpWriter) writeAllFlags() {
 		defaultTag := field.Tag.Get("default")
 
 		if longTag == "" {
-			continue // Skip fields without long tags
+			continue
 		}
 
-		// Get translated description
 		description := h.getTranslatedDescription(longTag)
 
-		// Format the flag line
 		var flagLine strings.Builder
 		flagLine.WriteString("  ")
 
@@ -246,7 +243,7 @@ func (h *TranslatedHelpWriter) writeAllFlags() {
 
 		flagLine.WriteString(fmt.Sprintf("--%s", longTag))
 
-		// Add parameter indicator for non-boolean flags
+		// A flag that takes a value shows "=".
 		isBoolFlag := field.Type.Kind() == reflect.Bool ||
 			strings.HasSuffix(longTag, "patterns") ||
 			strings.HasSuffix(longTag, "models") ||
@@ -258,7 +255,8 @@ func (h *TranslatedHelpWriter) writeAllFlags() {
 			strings.HasSuffix(longTag, "voices") ||
 			longTag == "setup" || longTag == "stream" || longTag == "raw" ||
 			longTag == "copy" || longTag == "updatepatterns" ||
-			longTag == "output-session" || longTag == "changeDefaultModel" ||
+			longTag == "output-session" || longTag == "extract" ||
+			longTag == "extract-last" || longTag == "changeDefaultModel" ||
 			longTag == "playlist" || longTag == "transcript" ||
 			longTag == "transcript-with-timestamps" || longTag == "comments" ||
 			longTag == "metadata" || longTag == "readability" ||
@@ -273,13 +271,11 @@ func (h *TranslatedHelpWriter) writeAllFlags() {
 			flagLine.WriteString("=")
 		}
 
-		// Pad to align descriptions
 		flagStr := flagLine.String()
 		padding := max(34-len(flagStr), 2)
 
 		fmt.Fprintf(h.writer, "%s%s%s", flagStr, strings.Repeat(" ", padding), description)
 
-		// Add default value if present
 		if defaultTag != "" && defaultTag != "0" && defaultTag != "false" {
 			fmt.Fprintf(h.writer, " (default: %s)", defaultTag)
 		}

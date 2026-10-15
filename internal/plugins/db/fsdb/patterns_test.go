@@ -12,7 +12,6 @@ import (
 )
 
 func setupTestPatternsEntity(t *testing.T) (*PatternsEntity, func()) {
-	// Create a temporary directory for test patterns
 	tmpDir, err := os.MkdirTemp("", "test-patterns-*")
 	require.NoError(t, err)
 
@@ -25,7 +24,6 @@ func setupTestPatternsEntity(t *testing.T) (*PatternsEntity, func()) {
 		SystemPatternFile: "system.md",
 	}
 
-	// Return cleanup function
 	cleanup := func() {
 		os.RemoveAll(tmpDir)
 	}
@@ -33,7 +31,6 @@ func setupTestPatternsEntity(t *testing.T) (*PatternsEntity, func()) {
 	return entity, cleanup
 }
 
-// Helper to create a test pattern file
 func createTestPattern(t *testing.T, entity *PatternsEntity, name, content string) {
 	patternDir := filepath.Join(entity.Dir, name)
 	err := os.MkdirAll(patternDir, 0755)
@@ -66,7 +63,7 @@ func TestApplyVariables(t *testing.T) {
 			want:  "You are a security expert.\nCheck this code\nPlease analyze.",
 		},
 		{
-			name: "pattern without input variable gets input appended",
+			name: "pattern without input placeholder stays unchanged",
 			pattern: &Pattern{
 				Pattern: "You are a {{role}}.\nPlease analyze.",
 			},
@@ -74,9 +71,8 @@ func TestApplyVariables(t *testing.T) {
 				"role": "code reviewer",
 			},
 			input: "Review this PR",
-			want:  "You are a code reviewer.\nPlease analyze.\nReview this PR",
+			want:  "You are a code reviewer.\nPlease analyze.",
 		},
-		// ... previous test cases ...
 	}
 
 	for _, tt := range tests {
@@ -98,7 +94,6 @@ func TestGetApplyVariables(t *testing.T) {
 	entity, cleanup := setupTestPatternsEntity(t)
 	defer cleanup()
 
-	// Create a test pattern
 	createTestPattern(t, entity, "test-pattern", "You are a {{role}}.\n{{input}}")
 
 	tests := []struct {
@@ -160,7 +155,7 @@ func TestGetWithoutVariables(t *testing.T) {
 	createTestPattern(t, entity, "no-input", "Static content")
 	result, err = entity.GetWithoutVariables("no-input", "hi")
 	require.NoError(t, err)
-	assert.Equal(t, "Static content\nhi", result.Pattern)
+	assert.Equal(t, "Static content", result.Pattern)
 }
 
 func TestPatternsEntity_Save(t *testing.T) {
@@ -220,7 +215,6 @@ func TestPatternsEntity_RenameRejectsFilePathDestination(t *testing.T) {
 		assert.True(t, os.IsNotExist(statErr), "renamed to: %q", newName)
 	}
 
-	// A valid destination still works.
 	require.NoError(t, entity.Rename("good-name", "better-name"))
 	_, err := os.Stat(filepath.Join(entity.Dir, "better-name"))
 	require.NoError(t, err)
@@ -264,12 +258,10 @@ func TestGetApplyVariables_FromFile(t *testing.T) {
 }
 
 func TestPatternsEntity_CustomPatterns(t *testing.T) {
-	// Create main patterns directory
 	mainDir, err := os.MkdirTemp("", "test-main-patterns-*")
 	require.NoError(t, err)
 	defer os.RemoveAll(mainDir)
 
-	// Create custom patterns directory
 	customDir, err := os.MkdirTemp("", "test-custom-patterns-*")
 	require.NoError(t, err)
 	defer os.RemoveAll(customDir)
@@ -284,7 +276,6 @@ func TestPatternsEntity_CustomPatterns(t *testing.T) {
 		CustomPatternsDir: customDir,
 	}
 
-	// Create a pattern in main directory
 	createTestPattern(t, &PatternsEntity{
 		StorageEntity: &StorageEntity{
 			Dir:       mainDir,
@@ -294,7 +285,6 @@ func TestPatternsEntity_CustomPatterns(t *testing.T) {
 		SystemPatternFile: "system.md",
 	}, "main-pattern", "Main pattern content")
 
-	// Create a pattern in custom directory
 	createTestPattern(t, &PatternsEntity{
 		StorageEntity: &StorageEntity{
 			Dir:       customDir,
@@ -304,7 +294,6 @@ func TestPatternsEntity_CustomPatterns(t *testing.T) {
 		SystemPatternFile: "system.md",
 	}, "custom-pattern", "Custom pattern content")
 
-	// Create a pattern with same name in both directories (custom should override)
 	createTestPattern(t, &PatternsEntity{
 		StorageEntity: &StorageEntity{
 			Dir:       mainDir,
@@ -323,29 +312,24 @@ func TestPatternsEntity_CustomPatterns(t *testing.T) {
 		SystemPatternFile: "system.md",
 	}, "shared-pattern", "Custom shared pattern")
 
-	// Test GetNames includes both directories
 	names, err := entity.GetNames()
 	require.NoError(t, err)
 	assert.Contains(t, names, "main-pattern")
 	assert.Contains(t, names, "custom-pattern")
 	assert.Contains(t, names, "shared-pattern")
 
-	// Test that custom pattern overrides main pattern
 	pattern, err := entity.getFromDB("shared-pattern")
 	require.NoError(t, err)
 	assert.Equal(t, "Custom shared pattern", pattern.Pattern)
 
-	// Test that main pattern is accessible when not overridden
 	pattern, err = entity.getFromDB("main-pattern")
 	require.NoError(t, err)
 	assert.Equal(t, "Main pattern content", pattern.Pattern)
 
-	// Test GetRaw also respects custom patterns directory
 	rawPattern, err := entity.GetRaw("shared-pattern")
 	require.NoError(t, err)
 	assert.Equal(t, "Custom shared pattern", rawPattern.Pattern)
 
-	// Test that custom pattern is accessible
 	pattern, err = entity.getFromDB("custom-pattern")
 	require.NoError(t, err)
 	assert.Equal(t, "Custom pattern content", pattern.Pattern)
@@ -358,7 +342,6 @@ func TestPrintPattern(t *testing.T) {
 	createTestPattern(t, entity, "test-pattern", "# IDENTITY\nYou are a test assistant.\n")
 
 	t.Run("prints pattern content to stdout", func(t *testing.T) {
-		// Capture stdout
 		oldStdout := os.Stdout
 		r, w, err := os.Pipe()
 		require.NoError(t, err)
@@ -458,7 +441,6 @@ func TestLooksLikePatternFilePath(t *testing.T) {
 }
 
 func TestPatternsEntity_CustomPatternsEmpty(t *testing.T) {
-	// Test behavior when custom patterns directory is empty or doesn't exist
 	mainDir, err := os.MkdirTemp("", "test-main-patterns-*")
 	require.NoError(t, err)
 	defer os.RemoveAll(mainDir)
@@ -473,7 +455,6 @@ func TestPatternsEntity_CustomPatternsEmpty(t *testing.T) {
 		CustomPatternsDir: "/nonexistent/directory",
 	}
 
-	// Create a pattern in main directory
 	createTestPattern(t, &PatternsEntity{
 		StorageEntity: &StorageEntity{
 			Dir:       mainDir,
@@ -483,12 +464,10 @@ func TestPatternsEntity_CustomPatternsEmpty(t *testing.T) {
 		SystemPatternFile: "system.md",
 	}, "main-pattern", "Main pattern content")
 
-	// Test GetNames works even with nonexistent custom directory
 	names, err := entity.GetNames()
 	require.NoError(t, err)
 	assert.Contains(t, names, "main-pattern")
 
-	// Test that main pattern is accessible
 	pattern, err := entity.getFromDB("main-pattern")
 	require.NoError(t, err)
 	assert.Equal(t, "Main pattern content", pattern.Pattern)

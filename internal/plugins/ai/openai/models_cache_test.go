@@ -14,8 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// withTempModelsCache redirects the models cache to a temporary directory for
-// the duration of a test and restores the original afterwards.
 func withTempModelsCache(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -32,8 +30,6 @@ func modelsURLFor(t *testing.T, baseURL string) string {
 	return full
 }
 
-// writeAgedCache writes a cache entry with an explicit age so freshness and
-// stale-fallback paths can be exercised deterministically.
 func writeAgedCache(t *testing.T, dir, provider, fullURL string, models []string, age time.Duration) {
 	t.Helper()
 	entry := modelsCacheEntry{URL: fullURL, FetchedAt: time.Now().Add(-age), Models: models}
@@ -113,7 +109,7 @@ func TestFetchModelsDirectly_429ServesStaleCache(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	// Stale so the TTL check misses and the request is actually made.
+	// A stale entry misses the TTL check, so the request goes out.
 	writeAgedCache(t, dir, "TestProvider", modelsURLFor(t, srv.URL), []string{"stale-model"}, 48*time.Hour)
 
 	models, err := FetchModelsDirectly(context.Background(), srv.URL, "key", "TestProvider", nil)
@@ -157,7 +153,7 @@ func TestFetchModelsDirectly_WritesCacheOnSuccess(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"m1"}, models)
 
-	// Cache is fresh now, so even with the server failing we get the cached list.
+	// The first fetch cached the list, so the failing server does not matter.
 	fail = true
 	models, err = FetchModelsDirectly(context.Background(), srv.URL, "key", "TestProvider", nil)
 	require.NoError(t, err)

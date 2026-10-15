@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"os/user"
@@ -48,7 +49,7 @@ func (c *Client) Send(ctx context.Context, msgs []*chat.ChatCompletionMessage, o
 	if err != nil {
 		return "", err
 	}
-	defer cleanupTmpDir()
+	defer os.RemoveAll(cmd.Dir)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
@@ -60,11 +61,11 @@ func (c *Client) Send(ctx context.Context, msgs []*chat.ChatCompletionMessage, o
 
 func (c *Client) SendStream(ctx context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions, channel chan domain.StreamUpdate) error {
 	defer close(channel)
-	defer cleanupTmpDir()
 	cmd, err := command(ctx, msgs, opts, "--verbose", "--output-format", "stream-json", "--include-partial-messages")
 	if err != nil {
 		return err
 	}
+	defer os.RemoveAll(cmd.Dir)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	stdout, err := cmd.StdoutPipe()
@@ -74,12 +75,11 @@ func (c *Client) SendStream(ctx context.Context, msgs []*chat.ChatCompletionMess
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	scanner := bufio.NewScanner(stdout)
-	scanner.Buffer(nil, 4<<20) // the final result line holds the full answer
-	for scanner.Scan() {
-		if text, ok := textDelta(scanner.Bytes()); ok {
-			channel <- domain.StreamUpdate{Type: domain.StreamTypeContent, Content: text}
-		}
+	if scanErr := scanStreamJSON(stdout, channel); scanErr != nil {
+		// Stop the child first. It can block on a full stdout pipe and Wait would not return.
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		return fmt.Errorf("claude: reading stream output: %w", scanErr)
 	}
 	if err := cmd.Wait(); err != nil {
 		return fail(err, &stderr)
@@ -87,10 +87,24 @@ func (c *Client) SendStream(ctx context.Context, msgs []*chat.ChatCompletionMess
 	return nil
 }
 
-// command builds the claude invocation. System messages go to --system-prompt,
-// all other messages go to stdin. A pattern that inlines {{input}} produces only
-// a system message, so that text becomes the prompt instead. When opts.ImageFile
-// is set, the directory is exposed via --add-dir so the Read tool can access it.
+// scanStreamJSON reads one stream-json event per line and forwards text deltas
+// to channel. It returns scanner.Err() so a truncated line or a broken pipe
+// surfaces as an error instead of a silently short answer.
+func scanStreamJSON(stdout io.Reader, channel chan domain.StreamUpdate) error {
+	scanner := bufio.NewScanner(stdout)
+	scanner.Buffer(nil, 4<<20) // the final result line holds the full answer
+	for scanner.Scan() {
+		if text, ok := textDelta(scanner.Bytes()); ok {
+			channel <- domain.StreamUpdate{Type: domain.StreamTypeContent, Content: text}
+		}
+	}
+	return scanner.Err()
+}
+
+// command builds the claude invocation. System messages go to --system-prompt.
+// All other messages go to stdin. If every message is a system message, that
+// text becomes the prompt. Image attachments and opts.ImageFile add their
+// directories with --add-dir so the Read tool can open them.
 func command(ctx context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions, extra ...string) (*exec.Cmd, error) {
 	var system, prompt []string
 	for _, m := range msgs {
@@ -119,34 +133,39 @@ func command(ctx context.Context, msgs []*chat.ChatCompletionMessage, opts *doma
 	case domain.ThinkingLow, domain.ThinkingMedium, domain.ThinkingHigh:
 		args = append(args, "--effort", string(opts.Thinking))
 	}
-	// Collect directories from image attachments and explicit ImageFile
+	// Run the CLI in a new private folder, not in the working folder of
+	// Fabric. The CLI read tools can open files in their working folder,
+	// for example a .env file. If the folder cannot be made, stop. The
+	// caller removes cmd.Dir after the command. Remove the folder before an
+	// error return after MkdirTemp, because then the caller does not.
+	tmpDir, err := os.MkdirTemp("", "claudecode-*")
+	if err != nil {
+		return nil, fmt.Errorf("claudecode: cannot make a working folder: %w", err)
+	}
 	dirs := make(map[string]bool)
-	tmpDir := filepath.Join(os.TempDir(), "claudecode")
 	for _, m := range msgs {
 		for _, p := range m.MultiContent {
 			if p.Type == chat.ChatMessagePartTypeImageURL && p.ImageURL != nil && p.ImageURL.URL != "" {
 				url := p.ImageURL.URL
-				// Base64 images from -a are written to temp files
+				// The -a flag sends a local image as a data: URL. Write it to a temp file.
+				// Use only a data: URL. Do not use a bare local path from a
+				// message as an --add-dir folder, because a REST client can
+				// write message content. The -a flag sends a local image as a
+				// data: URL, and only the CLI sets opts.ImageFile.
 				if strings.HasPrefix(url, "data:") {
 					tmpFile, err := decodeDataURL(url, tmpDir)
-					if err == nil {
-						dirs[tmpDir] = true
-						prompt = append(prompt, "Please analyze the file at: "+filepath.Base(tmpFile))
+					if err != nil {
+						os.RemoveAll(tmpDir)
+						return nil, fmt.Errorf("claudecode: image not sent: %w", err)
 					}
-				} else if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-					// Local file paths become references
-					dir := filepath.Dir(url)
-					if dir != "" && dir != "." {
-						dirs[dir] = true
-					}
-					prompt = append(prompt, "Please analyze the file at: "+filepath.Base(url))
+					dirs[tmpDir] = true
+					prompt = append(prompt, "Please analyze the file at: "+filepath.Base(tmpFile))
 				}
 			}
 		}
 	}
 	if opts.ImageFile != "" {
 		imagePath := opts.ImageFile
-		// Expand ~ to home directory
 		if strings.HasPrefix(imagePath, "~/") {
 			if u, err := user.Current(); err == nil {
 				imagePath = filepath.Join(u.HomeDir, imagePath[2:])
@@ -160,12 +179,13 @@ func command(ctx context.Context, msgs []*chat.ChatCompletionMessage, opts *doma
 	}
 	cmd := exec.CommandContext(ctx, binary, append(args, extra...)...)
 	cmd.Stdin = strings.NewReader(strings.Join(prompt, "\n\n"))
+	cmd.Dir = tmpDir
 	// Drop ANTHROPIC_* so the CLI bills the subscription, not an API key from Fabric's .env.
 	cmd.Env = slices.DeleteFunc(os.Environ(), func(kv string) bool { return strings.HasPrefix(kv, "ANTHROPIC_") })
 	return cmd, nil
 }
 
-// text returns the message text. Image attachments are handled separately via decodeDataURL.
+// text joins the message content and its text parts. command handles image parts.
 func text(m *chat.ChatCompletionMessage) (string, error) {
 	parts := []string{m.Content}
 	for _, p := range m.MultiContent {
@@ -176,12 +196,6 @@ func text(m *chat.ChatCompletionMessage) (string, error) {
 	return strings.TrimSpace(strings.Join(parts, "\n")), nil
 }
 
-// cleanupTmpDir removes the temp directory used for decoded images.
-func cleanupTmpDir() {
-	tmpDir := filepath.Join(os.TempDir(), "claudecode")
-	_ = os.RemoveAll(tmpDir)
-}
-
 // decodeDataURL writes a base64 data: URL to a temp file and returns its path.
 // Format: data:image/jpeg;base64,<data>
 func decodeDataURL(dataURL string, tmpDir string) (string, error) {
@@ -190,7 +204,6 @@ func decodeDataURL(dataURL string, tmpDir string) (string, error) {
 		return "", fmt.Errorf("invalid data URL format")
 	}
 
-	// Extract MIME type to guess file extension
 	header := parts[0]
 	ext := ".jpg"
 	if strings.Contains(header, "image/png") {
@@ -201,24 +214,20 @@ func decodeDataURL(dataURL string, tmpDir string) (string, error) {
 		ext = ".webp"
 	}
 
-	// Decode base64
 	data, err := base64.StdEncoding.DecodeString(parts[1])
 	if err != nil {
 		return "", err
 	}
 
-	// Create temp dir if needed
-	if err := os.MkdirAll(tmpDir, 0700); err != nil {
+	f, err := os.CreateTemp(tmpDir, "image_*"+ext)
+	if err != nil {
 		return "", err
 	}
-
-	// Write to temp file
-	tmpFile := filepath.Join(tmpDir, fmt.Sprintf("image_%d%s", os.Getpid(), ext))
-	if err := os.WriteFile(tmpFile, data, 0600); err != nil {
+	if _, err := f.Write(data); err != nil {
+		f.Close()
 		return "", err
 	}
-
-	return tmpFile, nil
+	return f.Name(), f.Close()
 }
 
 // textDelta extracts the text from one stream-json line, if it carries any.

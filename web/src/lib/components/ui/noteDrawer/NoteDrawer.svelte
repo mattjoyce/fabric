@@ -12,7 +12,6 @@
 
   let content = '';
   
-  // Auto-resize textarea
   function adjustTextareaHeight() {
     if (textareaEl) {
       textareaEl.style.height = 'auto';
@@ -39,7 +38,6 @@
     }
   }
   
-  // Prompt user if trying to close with unsaved changes
   $: if ($drawerStore.open === false && $noteStore.isDirty) {
     if (confirm('You have unsaved changes. Are you sure you want to close?')) {
       noteStore.reset();
@@ -48,7 +46,6 @@
     }
   }
   
-  // Load saved content when drawer opens
   $: if ($drawerStore.open) {
     const savedContent = localStorage.getItem('savedText');
     if (savedContent) {
@@ -57,7 +54,6 @@
     }
   }
   
-  // Keyboard shortcuts
   function handleKeydown(event: KeyboardEvent) {
     if ((event.ctrlKey || event.metaKey) && event.key === 's') {
       event.preventDefault();

@@ -11,9 +11,11 @@ import (
 	"mime"
 	"net/http"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/danielmiessler/fabric/internal/i18n"
+	"github.com/danielmiessler/fabric/internal/util"
 )
 
 const (
@@ -22,9 +24,18 @@ const (
 
 	// UserAgent identifies the client in HTTP requests
 	UserAgent = "Fabric-Fetch/1.0"
+
+	// fetchTimeout is the time limit for one fetch. It includes the
+	// redirects and the read of the body.
+	fetchTimeout = 30 * time.Second
 )
 
+// fetchDialControl checks the IP address of each connection that fetch
+// opens. A test replaces it to connect to an httptest server.
+var fetchDialControl = util.DenyNonPublicAddress
+
 // FetchPlugin provides HTTP fetching capabilities with safety constraints:
+// - Only public IP addresses, with a time limit and a redirect limit
 // - Only text content types allowed
 // - Size limited to MaxContentSize
 // - UTF-8 validation
@@ -67,7 +78,7 @@ func (p *FetchPlugin) isTextContent(contentType string) bool {
 	return isText
 }
 
-// validateTextContent ensures content is valid UTF-8 without null bytes
+// validateTextContent returns an error if content is not valid UTF-8 or contains a null byte.
 func (p *FetchPlugin) validateTextContent(content []byte) error {
 	debugf("Fetch: validating content length=%d bytes", len(content))
 
@@ -83,11 +94,11 @@ func (p *FetchPlugin) validateTextContent(content []byte) error {
 	return nil
 }
 
-// fetch retrieves content from a URL with safety checks
+// fetch downloads urlStr and applies the size, content-type, and UTF-8 checks.
 func (p *FetchPlugin) fetch(urlStr string) (string, error) {
 	debugf("Fetch: requesting URL %q", urlStr)
 
-	client := &http.Client{}
+	client := util.NewPublicHTTPClient(fetchTimeout, fetchDialControl)
 	req, err := http.NewRequest("GET", urlStr, nil)
 	if err != nil {
 		return "", fmt.Errorf(i18n.T("fetch_error_create_request"), err)

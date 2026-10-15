@@ -1,8 +1,8 @@
 import type { PdfConversion } from '../../services/PdfConversionService';
 
 // The parser seam for ChatInput. It converts one attached file to text.
-// Keep this module free of chat and store imports: that constraint is what
-// makes a file attachment unable to send a chat request.
+// Keep this module free of chat and store imports. That constraint keeps a
+// file attachment from sending a chat request.
 export async function readFileContent(
   file: File,
   pdf: { convertToMarkdown(file: File): Promise<PdfConversion> },

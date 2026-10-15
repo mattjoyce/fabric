@@ -11,13 +11,11 @@ import (
 	"time"
 )
 
-// modelsCacheTTL is how long a successfully fetched model list is considered
-// fresh. Model catalogs change rarely, so a long TTL keeps us from hitting
-// discovery endpoints that rate-limit with HTTP 429.
+// modelsCacheTTL is the age limit for a fresh model list. Model catalogs change
+// rarely, so a long TTL avoids discovery endpoints that rate-limit with HTTP 429.
 const modelsCacheTTL = 24 * time.Hour
 
-// modelsCacheDir returns the directory used to cache provider model lists. It
-// is a package variable so tests can redirect it to a temporary location.
+// modelsCacheDir is a variable so that tests can point the cache at a temporary directory.
 var modelsCacheDir = defaultModelsCacheDir
 
 func defaultModelsCacheDir() (string, error) {
@@ -36,9 +34,8 @@ type modelsCacheEntry struct {
 
 var cacheNameSanitizer = regexp.MustCompile(`[^A-Za-z0-9_-]+`)
 
-// modelsCacheFile derives a stable, collision-resistant cache path from the
-// provider name and the full request URL. The URL is hashed so a provider that
-// changes its endpoint does not read a stale entry from the old one.
+// modelsCacheFile builds the cache path from the provider name and a hash of the
+// URL. A provider that changes its endpoint then reads a new file, not a stale one.
 func modelsCacheFile(dir, providerName, fullURL string) string {
 	sum := sha256.Sum256([]byte(fullURL))
 	slug := cacheNameSanitizer.ReplaceAllString(providerName, "_")
@@ -46,10 +43,8 @@ func modelsCacheFile(dir, providerName, fullURL string) string {
 	return filepath.Join(dir, name)
 }
 
-// readModelsCache returns the cached model list for (providerName, fullURL).
-// When maxAge > 0 the entry must be younger than maxAge; maxAge <= 0 accepts an
-// entry of any age (used to fall back to a stale list when a fetch fails).
-// Empty cached lists are never returned.
+// readModelsCache returns the cached list for the provider and URL. A maxAge of
+// 0 or less accepts an entry of any age. An empty cached list is a miss.
 func readModelsCache(providerName, fullURL string, maxAge time.Duration) ([]string, bool) {
 	dir, err := modelsCacheDir()
 	if err != nil {
@@ -72,8 +67,8 @@ func readModelsCache(providerName, fullURL string, maxAge time.Duration) ([]stri
 	return entry.Models, true
 }
 
-// writeModelsCache persists a successfully fetched model list. Empty lists are
-// not cached so a transient empty response does not stick for the whole TTL.
+// writeModelsCache skips an empty list, so a transient empty response does not
+// stay cached for the full TTL.
 func writeModelsCache(providerName, fullURL string, models []string) error {
 	if len(models) == 0 {
 		return nil

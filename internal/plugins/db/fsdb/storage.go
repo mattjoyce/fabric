@@ -23,7 +23,9 @@ type StorageEntity struct {
 }
 
 func (o *StorageEntity) Configure() (err error) {
-	if err = os.MkdirAll(o.Dir, os.ModePerm); err != nil {
+	// Sessions and contexts can contain private text. Thus a new folder
+	// is private to the user.
+	if err = os.MkdirAll(o.Dir, 0700); err != nil {
 		return
 	}
 	return
@@ -31,13 +33,11 @@ func (o *StorageEntity) Configure() (err error) {
 
 // GetNames finds all patterns in the patterns directory and enters the id, name, and pattern into a slice of Entry structs. it returns these entries or an error
 func (o *StorageEntity) GetNames() (ret []string, err error) {
-	// Resolve the directory path to an absolute path
 	absDir, err := util.GetAbsolutePath(o.Dir)
 	if err != nil {
 		return nil, fmt.Errorf(i18n.T("storage_error_resolve_directory"), err)
 	}
 
-	// Read the directory entries
 	var entries []os.DirEntry
 	if entries, err = os.ReadDir(absDir); err != nil {
 		return nil, fmt.Errorf(i18n.T("storage_error_read_directory"), err)
@@ -46,20 +46,16 @@ func (o *StorageEntity) GetNames() (ret []string, err error) {
 	for _, entry := range entries {
 		entryPath := filepath.Join(absDir, entry.Name())
 
-		// Get metadata for the entry, including symlink info
 		fileInfo, err := os.Lstat(entryPath)
 		if err != nil {
 			return nil, fmt.Errorf(i18n.T("storage_error_stat_entry"), entryPath, err)
 		}
 
-		// Determine if the entry should be included
 		if o.ItemIsDir {
-			// Include directories or symlinks to directories
 			if fileInfo.IsDir() || (fileInfo.Mode()&os.ModeSymlink != 0 && util.IsSymlinkToDir(entryPath)) {
 				ret = append(ret, entry.Name())
 			}
 		} else {
-			// Include files, optionally filtering by extension
 			if !fileInfo.IsDir() {
 				if o.FileExtension == "" || filepath.Ext(entry.Name()) == o.FileExtension {
 					ret = append(ret, strings.TrimSuffix(entry.Name(), o.FileExtension))
@@ -111,7 +107,18 @@ func (o *StorageEntity) Save(name string, content []byte) (err error) {
 	if path, err = o.resolvedPath(name); err != nil {
 		return
 	}
-	if err = os.WriteFile(path, content, 0644); err != nil {
+	// Write to the target of an internal symlink. A rename onto the
+	// symlink replaces the link and does not change the target.
+	if target, evalErr := filepath.EvalSymlinks(path); evalErr == nil {
+		path = target
+	}
+	// A new file is private to the user. An existing file keeps its mode,
+	// but the umask can remove bits from it.
+	perm := os.FileMode(0600)
+	if info, statErr := os.Stat(path); statErr == nil {
+		perm = info.Mode().Perm()
+	}
+	if err = writeFileAtomic(path, content, perm); err != nil {
 		err = fmt.Errorf(i18n.T("storage_error_save"), name, err)
 	}
 	return

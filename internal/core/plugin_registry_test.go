@@ -34,7 +34,7 @@ func TestSaveEnvFile(t *testing.T) {
 	}
 }
 
-// testVendor implements ai.Vendor for testing purposes
+// testVendor implements ai.Vendor.
 type testVendor struct {
 	name         string
 	models       []string
@@ -78,7 +78,7 @@ func TestGetChatter_WarnsOnAmbiguousModel(t *testing.T) {
 	r, w, _ := os.Pipe()
 	oldStderr := os.Stderr
 	os.Stderr = w
-	// Redirect log output to our pipe to capture unconditional log messages
+	// debuglog.Log writes to its own output, not to os.Stderr, so redirect it too.
 	debuglog.SetOutput(w)
 	defer func() {
 		os.Stderr = oldStderr
@@ -92,7 +92,7 @@ func TestGetChatter_WarnsOnAmbiguousModel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetChatter() error = %v", err)
 	}
-	// Verify that one of the valid vendors was selected (don't care which one due to map iteration randomness)
+	// GetModels collects vendor results from goroutines, so either vendor can come first.
 	vendorName := chatter.vendor.GetName()
 	if vendorName != "VendorA" && vendorName != "VendorB" {
 		t.Fatalf("expected vendor VendorA or VendorB, got %s", vendorName)

@@ -125,7 +125,6 @@ func (h *StorageHandler[T]) Rename(c *gin.Context) {
 func (h *StorageHandler[T]) Save(c *gin.Context) {
 	name := c.Param("name")
 
-	// Read the request body
 	body := c.Request.Body
 	defer body.Close()
 
@@ -135,7 +134,6 @@ func (h *StorageHandler[T]) Save(c *gin.Context) {
 		return
 	}
 
-	// Save the content to storage
 	err = h.storage.Save(name, content)
 	if err != nil {
 		storageError(c, err)

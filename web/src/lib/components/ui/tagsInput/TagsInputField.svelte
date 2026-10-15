@@ -8,9 +8,9 @@
     value?: string[];
     name?: string;
     placeholder?: string;
-    /** Return false to refuse the tag that the person typed. */
-    // eslint.config.js uses the core no-unused-vars rule for Svelte components,
-    // and that rule reads the parameter name of a function type as a variable.
+    /** Return false to reject the tag that the person typed. */
+    // eslint.config.js applies the core no-unused-vars rule to Svelte components.
+    // That rule reads the parameter name of a function type as a variable.
     // eslint-disable-next-line no-unused-vars
     validation?: (value: string) => boolean;
     class?: string;

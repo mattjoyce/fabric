@@ -1,12 +1,12 @@
 import init, { processPdf, type PdfProcessResult } from '@firecrawl/pdf-inspector-wasm';
 
-// Request, service → worker. The buffer moves through the transfer list.
+// Request from the service to the worker. The buffer moves through the transfer list.
 export interface PdfRequest {
   id: number;
   buffer: ArrayBuffer;
 }
 
-// Response, worker → service.
+// Response from the worker to the service.
 export type PdfResponse =
   { id: number; ok: true; result: PdfProcessResult } | { id: number; ok: false; error: string };
 

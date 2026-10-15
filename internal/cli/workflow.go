@@ -31,14 +31,13 @@ type WorkflowStep struct {
 	Vendor    string            `yaml:"vendor,omitempty"`
 }
 
-// patternResolver is the minimal contract required to verify that a pattern
-// name points at a real system prompt before the workflow starts running.
+// patternResolver is the part of the patterns store that Validate needs.
 type patternResolver interface {
 	GetRaw(name string) (*fsdb.Pattern, error)
 }
 
-// stepLabel produces the canonical "[step N/TOTAL pattern]" prefix used by
-// every workflow log line and error so that users grep for one shape only.
+// stepLabel returns the "[step N/TOTAL pattern]" prefix. Every workflow log line
+// and error starts with it, so one grep pattern finds them all.
 func stepLabel(idx, total int, pattern string) string {
 	return fmt.Sprintf("[step %d/%d %s]", idx+1, total, pattern)
 }
@@ -100,8 +99,8 @@ func (wf *Workflow) Validate(patterns patternResolver) error {
 	return nil
 }
 
-// runWorkflow runs the validated steps in order and pipes each output into
-// the next step. It returns the final step output; the caller prints it.
+// runWorkflow runs the steps in order. Each output becomes the next input.
+// It returns the last output. The caller prints it.
 func runWorkflow(
 	registry *core.PluginRegistry,
 	wf *Workflow,
@@ -123,15 +122,12 @@ func runWorkflow(
 			return fmt.Errorf("%s failed: %w", label, e)
 		}
 
-		// Per-step input override: trim first so a YAML value that is only
-		// whitespace/newlines does NOT count as an override. Only a non-empty
-		// trimmed string replaces the carried input.
 		stepInput, usedOverride := resolveStepInputWithOverride(step, input)
 		if usedOverride {
 			fmt.Fprintf(os.Stderr, "%s using custom input (%d chars)\n", label, len(stepInput))
 		}
 
-		// Lightweight progress indicator on stderr so stdout stays pipe-clean.
+		// Progress goes to stderr so stdout holds only the result.
 		fmt.Fprintf(os.Stderr, "%s running...\n", label)
 
 		model := flags.Model
@@ -143,7 +139,7 @@ func runWorkflow(
 			vendor = step.Vendor
 		}
 
-		// Only stream the final step; intermediate output is captured whole.
+		// Only the last step streams. Earlier steps return their output whole.
 		stream := flags.Stream && isLast
 
 		var chatter *core.Chatter
@@ -152,11 +148,16 @@ func runWorkflow(
 			return "", stepErr(err)
 		}
 
+		// With --input-has-vars, replace the variables only in text from the
+		// user: the first step input and each input in the workflow file. The
+		// output of a step goes to the next step as literal text.
+		stepInputHasVars := flags.InputHasVars && (i == 0 || usedOverride)
+
 		req := &domain.ChatRequest{
 			ContextName:           flags.Context,
 			PatternName:           step.Pattern,
 			PatternVariables:      mergeVars(flags.PatternVariables, step.Variables),
-			InputHasVars:          flags.InputHasVars,
+			InputHasVars:          stepInputHasVars,
 			NoVariableReplacement: flags.NoVariableReplacement,
 			StrategyName:          flags.Strategy,
 			Language:              language,
@@ -169,7 +170,7 @@ func runWorkflow(
 			}
 		}
 
-		// Shallow copy so per-step mutations don't leak between iterations.
+		// Copy the options so per-step changes do not leak into the next step.
 		opts := *chatOptions
 		opts.Model = model
 		opts.Quiet = !isLast
@@ -195,9 +196,8 @@ func runWorkflow(
 	return result, nil
 }
 
-// extractStepOutput pulls the assistant response from a completed session and
-// guards against the two realistic edge cases: no message appended at all, or
-// a message whose content is blank/whitespace-only.
+// extractStepOutput returns the trimmed assistant response. It fails when the
+// session has no message or the content is blank.
 func extractStepOutput(session *fsdb.Session) (string, error) {
 	if session == nil {
 		return "", fmt.Errorf("model returned no session")
@@ -213,8 +213,8 @@ func extractStepOutput(session *fsdb.Session) (string, error) {
 	return out, nil
 }
 
-// handleWorkflowProcessing wires the CLI flags into the load → validate → run
-// pipeline and handles terminal output (print / copy / file).
+// handleWorkflowProcessing loads, validates, and runs the workflow, then prints,
+// copies, or writes the result.
 func handleWorkflowProcessing(currentFlags *Flags, registry *core.PluginRegistry, messageTools string) (err error) {
 	wf, err := LoadWorkflow(currentFlags.Workflow)
 	if err != nil {
@@ -239,9 +239,10 @@ func handleWorkflowProcessing(currentFlags *Flags, registry *core.PluginRegistry
 		return
 	}
 
-	// Print final result unless it was already streamed live.
+	// Print the result unless streaming already printed it. Remove terminal
+	// control sequences from the displayed copy only.
 	if !currentFlags.Stream || chatOptions.SuppressThink {
-		fmt.Println(result)
+		fmt.Println(domain.SanitizeTerminalOutput(result))
 	}
 
 	if currentFlags.Copy {
@@ -256,9 +257,8 @@ func handleWorkflowProcessing(currentFlags *Flags, registry *core.PluginRegistry
 	return
 }
 
-// resolveStepInputWithOverride picks the user input for a workflow step.
-// A non-empty (after TrimSpace) step.Input overrides the carried value;
-// whitespace-only or missing input falls back to carriedInput.
+// resolveStepInputWithOverride returns the input for one step. A step.Input that
+// is not blank after TrimSpace replaces carriedInput. Otherwise carriedInput stays.
 func resolveStepInputWithOverride(step WorkflowStep, carriedInput string) (chosenInput string, usedOverride bool) {
 	if override := strings.TrimSpace(step.Input); override != "" {
 		return override, true

@@ -6,7 +6,8 @@ export interface PdfConversion {
 	warning?: string;
 }
 
-// Maps the raw worker result to UI behavior. Throws when there is no usable text.
+// Turns the worker result into Markdown and an optional warning. Throws when
+// there is no usable text.
 export function interpretPdfResult(result: PdfProcessResult, fileName: string): PdfConversion {
 	if (result.pdfType === 'Scanned' || result.pdfType === 'ImageBased') {
 		throw new Error(

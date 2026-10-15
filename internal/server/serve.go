@@ -27,31 +27,70 @@ import (
 // @securityDefinitions.apikey ApiKeyAuth
 // @in header
 // @name X-API-Key
-func Serve(registry *core.PluginRegistry, address string, apiKey string) (err error) {
+func Serve(registry *core.PluginRegistry, address string, apiKey string, corsOrigins []string) (err error) {
 	if err = requireAPIKeyForBind(address, apiKey); err != nil {
 		return err
 	}
+	if corsOrigins, err = cleanCORSOrigins(corsOrigins, apiKey); err != nil {
+		return err
+	}
 
+	return newServeEngine(registry, apiKey, corsOrigins).Run(address)
+}
+
+// newSecuredEngine makes an engine with the security middleware that each
+// server uses. noKeyWarning is the log message when apiKey is empty.
+func newSecuredEngine(registry *core.PluginRegistry, apiKey string, corsOrigins []string, noKeyWarning string) *gin.Engine {
+	// A client can save a pattern. Thus the server must not run a pattern
+	// plugin that reads the environment or files, fetches a URL, or runs an
+	// extension. Set this here, so that each server entry point gets it.
+	registry.Db.Patterns.NoSystemPlugins = true
+
+	// Debug mode logs each route and warns at startup. Use release mode,
+	// unless the operator sets GIN_MODE.
+	if os.Getenv(gin.EnvGinMode) == "" {
+		gin.SetMode(gin.ReleaseMode)
+	}
 	r := gin.New()
+	// The server is not behind a known proxy. Thus c.ClientIP() in the logs
+	// must not come from the X-Forwarded-For header, which a client can set.
+	_ = r.SetTrustedProxies(nil) // A nil list gives no error.
 
-	// Middleware
-	r.Use(gin.Logger())
+	// The query string can hold template variables, for example on
+	// POST /patterns/:name/apply. Do not write it to the log.
+	r.Use(gin.LoggerWithConfig(gin.LoggerConfig{SkipQueryString: true}))
 	r.Use(gin.Recovery())
+
+	if len(corsOrigins) > 0 {
+		r.Use(CORSMiddleware(corsOrigins))
+	}
 
 	if apiKey != "" {
 		r.Use(APIKeyMiddleware(apiKey))
 	} else {
-		slog.Warn(i18n.T("server_no_api_key_warning"))
+		// With no key, the server does no authentication. Reject a request
+		// whose Host is not loopback or whose Origin is from a different site.
+		r.Use(LoopbackSecurityMiddleware(corsOrigins))
+		slog.Warn(noKeyWarning)
 	}
+
+	// The body limit comes after the API key and loopback checks. The
+	// middleware can read a chunked body into memory, and it must not do
+	// this for a request that the server rejects.
+	r.Use(MaxBodyBytesMiddleware(MaxRequestBodyBytes))
+	return r
+}
+
+// newServeEngine makes the REST API engine but does not start it, which lets
+// tests operate the middleware and the routes.
+func newServeEngine(registry *core.PluginRegistry, apiKey string, corsOrigins []string) *gin.Engine {
+	r := newSecuredEngine(registry, apiKey, corsOrigins, i18n.T("server_no_api_key_warning"))
 
 	// Swagger UI and documentation endpoint with custom YAML handler
 	r.GET("/swagger/*any", func(c *gin.Context) {
-		// Check if request is for swagger.yaml
 		if c.Param("any") == "/swagger.yaml" {
-			// Try to find swagger.yaml relative to current directory or executable
 			yamlPath := "docs/swagger.yaml"
 			if _, err := os.Stat(yamlPath); os.IsNotExist(err) {
-				// Try relative to executable
 				if exePath, err := os.Executable(); err == nil {
 					yamlPath = filepath.Join(filepath.Dir(exePath), "docs", "swagger.yaml")
 				}
@@ -70,7 +109,6 @@ func Serve(registry *core.PluginRegistry, address string, apiKey string) (err er
 		ginSwagger.WrapHandler(swaggerFiles.Handler)(c)
 	})
 
-	// Register routes
 	fabricDb := registry.Db
 	NewPatternsHandler(r, fabricDb.Patterns)
 	NewContextsHandler(r, fabricDb.Contexts)
@@ -80,12 +118,5 @@ func Serve(registry *core.PluginRegistry, address string, apiKey string) (err er
 	NewConfigHandler(r, fabricDb)
 	NewModelsHandler(r, registry.VendorManager)
 	NewStrategiesHandler(r)
-
-	// Start server
-	err = r.Run(address)
-	if err != nil {
-		return err
-	}
-
-	return
+	return r
 }

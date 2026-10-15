@@ -54,7 +54,6 @@ export class ChatService {
 				promptCount: request.prompts?.length,
 				messageCount: request.messages?.length,
 			});
-			// NEW: Log the full payload before sending to backend
 			console.log(
 				"Final ChatRequest payload:",
 				JSON.stringify(request, null, 2),
@@ -91,11 +90,9 @@ export class ChatService {
 	 * never on individual streaming tokens (which have leading spaces as word separators).
 	 */
 	public cleanPatternOutput(content: string): string {
-		// Remove markdown fence if present
 		let cleaned = content.replace(/^```markdown\n/, "");
 		cleaned = cleaned.replace(/\n```$/, "");
 
-		// Existing cleaning
 		cleaned = cleaned.replace(/^# OUTPUT\s*\n/, "");
 		cleaned = cleaned.replace(/^\s*\n/, "");
 		cleaned = cleaned.replace(/\n\s*$/, "");
@@ -118,14 +115,14 @@ export class ChatService {
 			const pattern = get(selectedPatternName);
 
 			if (pattern) {
-				// Do NOT call cleanPatternOutput here - it runs on each streaming token
-				// and .trim() strips leading spaces that serve as word separators.
-				// Cleaning should be done on the final accumulated content at display time.
+				// Do not call cleanPatternOutput here. processResponse runs on each
+				// streaming token, and trim() removes the leading space that
+				// separates words. ChatMessages cleans the accumulated content at
+				// display time.
 
-				// Simplified format determination - always markdown unless mermaid.
-				// The server leaves the content field out of a message that carries
-				// no text, such as the one that ends the stream, so read an absent
-				// value as empty text.
+				// The server leaves the content field out of a message with no text,
+				// for example the message that ends the stream. Read a missing value
+				// as empty text.
 				const content = response.content ?? "";
 				const isMermaid = [
 					"graph TD",
@@ -145,8 +142,8 @@ export class ChatService {
 
 			return response;
 		};
-		// Persistent decoder: a multi-byte UTF-8 rune split across network chunks is
-		// otherwise decoded as two halves and corrupted into U+FFFD before it is buffered.
+		// Keep one decoder in streaming mode. If not, a multi-byte UTF-8 rune
+		// divided between two network chunks becomes U+FFFD.
 		const decoder = new TextDecoder();
 		return new ReadableStream({
 			async start(controller) {
@@ -157,7 +154,7 @@ export class ChatService {
 
 						buffer += decoder.decode(value, { stream: true });
 						const segments = buffer.split("\n\n");
-						// Last segment may be incomplete; keep it as buffer
+						// The last segment can be incomplete, so it stays in the buffer.
 						buffer = segments.pop() || "";
 						for (const segment of segments) {
 							const trimmed = segment.trim();
@@ -178,7 +175,6 @@ export class ChatService {
 						}
 					}
 
-					// Process any remaining complete message in the buffer
 					const trimmed = buffer.trim();
 					if (trimmed.startsWith("data: ")) {
 						try {
@@ -219,7 +215,7 @@ export class ChatService {
 		const languageInstruction =
 			language !== "en"
 				? `You MUST respond in ${language} language. All output must be in ${language}. `
-				: // ? `You MUST respond in ${language} language. ALL output, including section headers, titles, and formatting, MUST be translated into ${language}.  It is CRITICAL that you translate ALL headers, such as SUMMARY, IDEAS, QUOTES, TAKEAWAYS, MAIN POINTS, etc., into ${language}. Maintain markdown formatting in the response. Do not output any English headers.`
+				:
 					"";
 
 		const finalSystemPrompt =
@@ -235,9 +231,9 @@ export class ChatService {
 			systemPrompt: finalSystemPrompt,
 			model: config.model,
 			patternName: get(selectedPatternName),
-			strategyName: get(selectedStrategy), // Add selected strategy to prompt
+			strategyName: get(selectedStrategy),
 			sessionName: get(currentSession) ?? undefined, // Session name for multi-turn conversations
-			variables: get(patternVariables), // Add pattern variables
+			variables: get(patternVariables),
 		};
 	}
 
@@ -253,7 +249,7 @@ export class ChatService {
 		return {
 			prompts: [prompt],
 			messages: [],
-			language: language, // Add language at the top level for backend compatibility
+			language: language, // The backend reads language from the top level.
 			...config,
 		};
 	}

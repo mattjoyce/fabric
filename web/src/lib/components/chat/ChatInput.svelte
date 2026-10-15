@@ -9,7 +9,6 @@
   import { get } from 'svelte/store';
   import { getTranscript } from '$lib/services/transcriptService';
   import { ChatService } from '$lib/services/ChatService';
-  // import { obsidianSettings } from '$lib/store/obsidian-store';
   import { languageStore } from '$lib/store/language-store';
   import { obsidianSettings, updateObsidianSettings } from '$lib/store/obsidian-store';
   import { PdfConversionService } from '$lib/services/PdfConversionService';
@@ -28,8 +27,8 @@
   let uploadedFiles: string[] = [];
   let fileContents: string[] = [];
   let isProcessingFiles = false;
-  let isFileIndicatorVisible = false; // Add new variable
-  let fileButtonKey = false; // Add new key variable for FileButton
+  let isFileIndicatorVisible = false;
+  let fileButtonKey = false;
   function detectYouTubeURL(input: string): boolean {
     const youtubePattern = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)/i;
     const isYoutube = youtubePattern.test(input);
@@ -83,7 +82,7 @@
   }
 
   async function handleFileUpload(e: Event) {
-  uploadedFiles = []; // Clear uploadedFiles at the beginning
+  uploadedFiles = [];
   isFileIndicatorVisible = false;
   if (!files || files.length === 0) return;
 
@@ -94,7 +93,6 @@
 
   isProcessingFiles = true;
   try {
-    // Add processing indicator to message store
     messageStore.update(messages => [...messages, {
       role: 'system',
       content: 'Processing files...',
@@ -108,7 +106,6 @@
       uploadedFiles = [...uploadedFiles, file.name];
       isFileIndicatorVisible = true;
       
-      // Update processing status per file
       messageStore.update(messages => {
         const newMessages = [...messages];
         const lastMessage = newMessages[newMessages.length - 1];
@@ -119,7 +116,6 @@
       });
     }
 
-    // Remove processing message on completion
     messageStore.update(messages => 
       messages.filter(m => m.format !== 'loading')
     );
@@ -127,7 +123,6 @@
   } catch (error) {
     toastStore.error('Error processing files: ' + (error as Error).message);
     
-    // Clean up processing message on error
     messageStore.update(messages => 
       messages.filter(m => m.format !== 'loading')
     );
@@ -176,10 +171,9 @@
       if (!response.ok) {
         throw new Error(responseData.error || 'Failed to save to Obsidian');
       }
-      // Add this after successful save
       updateObsidianSettings({ 
-      saveToObsidian: false,  // Reset the save flag
-      noteName: ''           // Clear the note name
+      saveToObsidian: false,
+      noteName: ''
       });
       toastStore.success(responseData.message || `Saved to Obsidian: ${responseData.fileName}`);
     } catch (error) {
@@ -188,7 +182,7 @@
     }
   }
 
-  // Centralized language instruction logic in ChatService.ts; YouTube flow now passes plain transcript and system prompt
+  // ChatService adds the language instruction. The YouTube flow passes the plain transcript.
   function extractYouTubeURLs(input: string): string[] {
       const youtubePattern = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=[\w-]+(?:&[^\s]*)?|youtu\.be\/[\w-]+(?:\?[^\s]*)?)/gi;
       return input.match(youtubePattern) || [];
@@ -212,24 +206,20 @@
   try {
     console.log('\n=== Submit Handler Start ===');
 
-    // Store the user input before any processing
     const inputText = userInput.trim();
     console.log('Captured user input:', inputText);
 
-    // Add the user message to the UI first
     messageStore.update(messages => [...messages, {
       role: 'user',
       content: inputText
     }]);
 
-    // Add loading indicator
     messageStore.update(messages => [...messages, {
       role: 'system',
       content: isYouTubeURL ? 'Processing YouTube video...' : 'Processing...',
       format: 'loading'
     }]);
 
-    // Clear input fields
     userInput = "";
     const hadYouTubeURL = isYouTubeURL;
     isYouTubeURL = false;
@@ -240,19 +230,16 @@
     isFileIndicatorVisible = false;
     fileButtonKey = !fileButtonKey;
 
-    // If the message contains YouTube URLs, replace them with transcripts
     let processedText = inputText;
     if (hadYouTubeURL) {
       console.log('Replacing YouTube URLs with transcripts');
       processedText = await replaceYouTubeURLsWithTranscripts(inputText);
     }
 
-    // Prepare content with file attachments if any
     const contentWithFiles = contentsForProcessing.length > 0
       ? `${processedText}\n\nFile Contents (${filesForProcessing.map(f => f.endsWith('.pdf') ? 'PDF' : 'Text').join(', ')}):\n${contentsForProcessing.join('\n\n---\n\n')}`
       : processedText;
 
-    // Get the enhanced prompt
     const enhancedPrompt = contentsForProcessing.length > 0
       ? `${$systemPrompt}\nAnalyze and process the provided content according to these instructions.`
       : $systemPrompt;
@@ -264,16 +251,13 @@
     });
     
     try {
-      // Get the chat stream
       const stream = await chatService.streamChat(contentWithFiles, enhancedPrompt);
       
-      // Process the stream
       await chatService.processStream(
         stream,
         (content, response) => {
           messageStore.update(messages => {
             const newMessages = [...messages];
-            // Remove the loading message
             const loadingIndex = newMessages.findIndex(m => m.format === 'loading');
             if (loadingIndex !== -1) {
               newMessages.splice(loadingIndex, 1);
@@ -295,7 +279,6 @@
         },
 
         (error) => {
-          // Make sure to remove loading message on error
           messageStore.update(messages =>
             messages.filter(m => m.format !== 'loading')
           );
@@ -303,28 +286,25 @@
 
           const message = formatErrorMessage(error);
 
-          // Show the error in the chat, where it stays for the person to read.
+          // Show the error in the chat, where it stays on screen.
           messageStore.update(messages => [...messages, {
             role: 'system',
             content: message,
             format: 'plain'
           }]);
-          // And as a toast, so that a failure is visible even when the chat is
-          // scrolled away from the end.
+          // Also show a toast, so the failure is visible when the chat is scrolled up.
           toastStore.error(message);
         }
       );
     } catch (error) {
-      // Make sure to remove loading message on error
       messageStore.update(messages => 
         messages.filter(m => m.format !== 'loading')
       );
-      throw error; // Re-throw to be caught by the outer try/catch
+      throw error;
     }
   } catch (error) {
     console.error('Chat submission error:', error);
     
-    // Make sure to remove loading message on error (redundant but safe)
     messageStore.update(messages => 
       messages.filter(m => m.format !== 'loading')
     );
@@ -339,7 +319,7 @@
     }]);
     toastStore.error(message);
   } finally {
-    // As a final safety measure, ensure loading message is removed
+    // The error handlers above also remove the loading message. This is a last safeguard.
     messageStore.update(messages => 
       messages.filter(m => m.format !== 'loading')
     );
@@ -375,10 +355,8 @@
           </span>
         {/if}
       {#key fileButtonKey}
-        <!-- Skeleton 5 replaced FileButton with FileUpload, which draws a drop
-          zone and reports files through a callback. A label with a hidden file
-          input keeps both the appearance and the change handler of the button
-          that was here before. -->
+        <!-- Skeleton 5 replaced FileButton with FileUpload, which draws a drop zone.
+          A label with a hidden file input keeps the old button look and change handler. -->
         <label
           class="btn-icon preset-tonal inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-primary-800/30 transition-colors hover:bg-primary-800/50"
           class:pointer-events-none={isProcessingFiles || uploadedFiles.length >= 5}

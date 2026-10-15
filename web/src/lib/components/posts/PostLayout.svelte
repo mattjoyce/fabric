@@ -6,7 +6,6 @@
   export let description
   export let author
   export let updated
-  //export let content
 </script>
 
 <article class="prose prose-slate dark:prose-invert max-w-5xl flex-1">

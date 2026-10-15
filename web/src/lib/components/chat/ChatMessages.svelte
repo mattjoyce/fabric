@@ -3,6 +3,7 @@
   import { afterUpdate, onMount } from 'svelte';
   import { toastStore } from '$lib/store/toast-store';
   import { marked } from 'marked';
+  import { renderMarkdown } from '$lib/utils/sanitize-html';
   import SessionManager from './SessionManager.svelte';
   import { fade, slide } from 'svelte/transition';
   import { ArrowDown } from 'lucide-svelte';
@@ -32,15 +33,13 @@
     showScrollButton = scrollHeight - scrollTop - clientHeight > 100;
   }
 
-  // Watch for changes in messages
   $: if ($chatState.messages.length > 0) {
     const lastMessage = $chatState.messages[$chatState.messages.length - 1];
     isUserMessage = lastMessage.role === 'user';
-    // Auto-scroll on both user messages and assistant messages
     setTimeout(scrollToBottom, 100);
   }
 
-  // Also watch for streaming state changes to ensure scrolling when streaming completes
+  // Scroll again when streaming ends.
   $: if ($streamingStore === false) {
     setTimeout(scrollToBottom, 100);
   }
@@ -56,7 +55,6 @@
     }
   });
 
-  // Configure marked to be synchronous
   const renderer = new marked.Renderer();
   marked.setOptions({
     gfm: true,
@@ -65,7 +63,6 @@
     async: false
   });
 
-  // New shouldRenderAsMarkdown function
 function shouldRenderAsMarkdown(message: Message): boolean {
     const pattern = get(selectedPatternName);
     if (pattern && message.role === 'assistant') {
@@ -74,25 +71,19 @@ function shouldRenderAsMarkdown(message: Message): boolean {
     return message.role === 'assistant' && message.format !== 'plain';
 }
 
-// Clean pattern output on accumulated content at render time
 const chatService = new ChatService();
 
 function renderContent(message: Message): string {
     let content = message.content.replace(/\\n/g, '\n');
 
-    // Apply pattern cleaning on the full accumulated content (not per-token)
+    // Clean the full accumulated content, not each token.
     const pattern = get(selectedPatternName);
     if (pattern && message.role === 'assistant') {
         content = chatService.cleanPatternOutput(content);
     }
 
     if (shouldRenderAsMarkdown(message)) {
-        try {
-            return marked.parse(content, { async: false }) as string;
-        } catch (error) {
-            console.error('Error rendering markdown:', error);
-            return content;
-        }
+        return renderMarkdown(content);
     }
     return content;
 }
@@ -162,9 +153,16 @@ function renderContent(message: Message): string {
               {message.content}
             </div>
           {:else if message.role === 'assistant'}
-            <div class="{shouldRenderAsMarkdown(message) ? 'prose prose-slate dark:prose-invert text-inherit prose-headings:text-inherit prose-pre:bg-primary/10 prose-pre:text-inherit' : 'whitespace-pre-wrap'} text-sm max-w-none">
-              {@html renderContent(message)}
-            </div>
+            {#if shouldRenderAsMarkdown(message)}
+              <div class="prose prose-slate dark:prose-invert text-inherit prose-headings:text-inherit prose-pre:bg-primary/10 prose-pre:text-inherit text-sm max-w-none">
+                {@html renderContent(message)}
+              </div>
+            {:else}
+              <!-- Plain and mermaid replies show as text. Svelte escapes the text. -->
+              <div class="whitespace-pre-wrap text-sm max-w-none">
+                {renderContent(message)}
+              </div>
+            {/if}
           {:else}
             <div class="whitespace-pre-wrap text-sm">
               {message.content}

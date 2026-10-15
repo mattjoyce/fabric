@@ -119,6 +119,7 @@ func TestPatternsHandler_BackendErrorHidesPaths(t *testing.T) {
 		httptest.NewRequest(http.MethodGet, "/patterns/missing", nil),
 		httptest.NewRequest(http.MethodPost, "/patterns/missing/apply", strings.NewReader(`{"input":"x"}`)),
 	} {
+		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		if w.Code != http.StatusInternalServerError {
@@ -219,6 +220,7 @@ func TestPatternsHandler_RejectsUnsafeNamesOnReadRoutes(t *testing.T) {
 		httptest.NewRequest(http.MethodGet, "/patterns/NUL", nil),
 		httptest.NewRequest(http.MethodPost, "/patterns/foo:bar/apply", strings.NewReader(`{"input":"x"}`)),
 	} {
+		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		if w.Code != http.StatusBadRequest {
@@ -285,10 +287,10 @@ func TestRequireAPIKeyForBind(t *testing.T) {
 // start an unauthenticated server on a non-loopback bind. The registry
 // is nil, and a check that does not occur first causes a panic.
 func TestServeFailsClosedOnNonLoopbackBind(t *testing.T) {
-	if err := Serve(nil, ":0", ""); err == nil {
+	if err := Serve(nil, ":0", "", nil); err == nil {
 		t.Fatal("Serve on a wildcard bind without a key did not fail")
 	}
-	if err := ServeOllama(nil, ":0", "v", ""); err == nil {
+	if err := ServeOllama(nil, ":0", "v", "", nil); err == nil {
 		t.Fatal("ServeOllama on a wildcard bind without a key did not fail")
 	}
 }

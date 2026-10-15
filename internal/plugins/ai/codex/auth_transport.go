@@ -24,9 +24,8 @@ type authTransport struct {
 }
 
 func (c *Client) ensureAccessToken(ctx context.Context, forceRefresh bool) (string, string, error) {
-	// Fast path: a valid in-memory token needs no refresh, so avoid the store
-	// lock and disk reload. This also keeps Setup's fresh OAuth tokens from
-	// being overwritten by the stale values still on disk before SaveEnvFile.
+	// A valid in-memory token needs no refresh, so skip the store lock and the disk reload.
+	// The reload would replace the fresh tokens from Setup with stale values from disk until SaveEnvFile runs.
 	if !forceRefresh {
 		if access, account, ok := c.currentToken(); ok {
 			return access, account, nil
@@ -47,9 +46,8 @@ func (c *Client) ensureAccessToken(ctx context.Context, forceRefresh bool) (stri
 	return access, account, nil
 }
 
-// currentToken returns the in-memory token when it is present and unexpired.
-// A missing account ID falls through to the locked path, which parses it from
-// the JWT.
+// currentToken returns the in-memory token when it is present and not expired.
+// When the account ID is missing, the locked path parses it from the JWT.
 func (c *Client) currentToken() (access string, account string, ok bool) {
 	c.tokenMu.Lock()
 	defer c.tokenMu.Unlock()
@@ -226,7 +224,7 @@ func cloneRequest(req *http.Request) (*http.Request, error) {
 	if req.Body == nil || req.Body == http.NoBody {
 		return clone, nil
 	}
-	// Codex retry logic assumes GetBody is available so the request can be replayed after refresh.
+	// The 401 retry replays the request, so it needs GetBody.
 	if req.GetBody == nil {
 		return nil, errReplayBodyUnavailable
 	}

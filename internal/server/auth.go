@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"fmt"
-	"net"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -14,21 +14,18 @@ import (
 
 const APIKeyHeader = "X-API-Key"
 
+// minAPIKeyLength is the key length below which the server warns. The
+// server has no limit on wrong keys, so a short key is easy to guess.
+const minAPIKeyLength = 16
+
 // requireAPIKeyForBind rejects a non-loopback bind address that has no
 // API key. An empty or unspecified host binds each interface, and that
-// counts as non-loopback.
+// counts as non-loopback. It warns when the key is short.
 func requireAPIKeyForBind(address, apiKey string) error {
-	if apiKey != "" {
-		return nil
+	if apiKey != "" && len(apiKey) < minAPIKeyLength {
+		slog.Warn("API key is short: use a random key of 16 or more characters", "length", len(apiKey))
 	}
-	host := address
-	if h, _, err := net.SplitHostPort(address); err == nil {
-		host = h
-	}
-	if host == "localhost" {
-		return nil
-	}
-	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+	if apiKey != "" || isLoopbackHost(hostOnly(address)) {
 		return nil
 	}
 	return fmt.Errorf(i18n.T("server_api_key_required"), address)
@@ -38,9 +35,7 @@ func requireAPIKeyForBind(address, apiKey string) error {
 // Swagger documentation endpoints (/swagger/*) are exempt from authentication
 // to allow users to browse and test the API documentation freely.
 func APIKeyMiddleware(apiKey string) gin.HandlerFunc {
-	// Compare digests, not the raw values. ConstantTimeCompare returns
-	// early when the lengths are different, and that shows the length of
-	// the configured key.
+	// Hash the configured key so the comparison avoids leaking its length through timing.
 	expectedKey := sha256.Sum256([]byte(apiKey))
 	return func(c *gin.Context) {
 		// Skip authentication for Swagger documentation endpoints
@@ -53,12 +48,15 @@ func APIKeyMiddleware(apiKey string) gin.HandlerFunc {
 		headerApiKey := c.GetHeader(APIKeyHeader)
 
 		if headerApiKey == "" {
+			slog.Warn("API key missing", "client", c.ClientIP(), "path", c.Request.URL.Path)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing API Key"})
 			return
 		}
 
 		headerKey := sha256.Sum256([]byte(headerApiKey))
 		if subtle.ConstantTimeCompare(headerKey[:], expectedKey[:]) != 1 {
+			// An operator can find repeated guesses in this log.
+			slog.Warn("API key wrong", "client", c.ClientIP(), "path", c.Request.URL.Path)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Wrong API Key"})
 			return
 		}

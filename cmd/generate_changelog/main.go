@@ -24,7 +24,7 @@ var rootCmd = &cobra.Command{
 collects version information and pull requests, and generates a
 comprehensive changelog in markdown format.`,
 	RunE:         run,
-	SilenceUsage: true, // Don't show usage on runtime errors, only on flag errors
+	SilenceUsage: true, // show usage only for flag errors
 }
 
 func init() {
@@ -103,11 +103,10 @@ func run(cmd *cobra.Command, args []string) error {
 }
 
 func main() {
-	// Load .env file from the same directory as the binary
+	// Load the .env file next to the binary.
 	if exePath, err := os.Executable(); err == nil {
 		envPath := filepath.Join(filepath.Dir(exePath), ".env")
 		if _, err := os.Stat(envPath); err == nil {
-			// .env file exists, load it
 			if err := godotenv.Load(envPath); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: Failed to load .env file: %v\n", err)
 			}

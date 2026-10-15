@@ -17,6 +17,7 @@ import (
 	"github.com/danielmiessler/fabric/internal/i18n"
 	debuglog "github.com/danielmiessler/fabric/internal/log"
 	"github.com/danielmiessler/fabric/internal/plugins"
+	"github.com/danielmiessler/fabric/internal/util"
 	ollamaapi "github.com/ollama/ollama/api"
 )
 
@@ -62,6 +63,18 @@ func (t *transport_sec) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.underlyingTransport.RoundTrip(req)
 }
 
+// imageFetchTimeout is the time limit for one image fetch. It includes
+// the dial and the redirects.
+const imageFetchTimeout = 30 * time.Second
+
+// maxImageSize is the maximum size of an image that loadImageBytes reads.
+const maxImageSize = 20 << 20
+
+// imageDialControl checks the IP address of each connection that
+// loadImageBytes makes. A test replaces it to connect to an httptest
+// server.
+var imageDialControl = util.DenyNonPublicAddress
+
 // IsConfigured returns true only if OLLAMA_API_URL environment variable is explicitly set
 func (o *Client) IsConfigured() bool {
 	return os.Getenv("OLLAMA_API_URL") != ""
@@ -73,7 +86,7 @@ func (o *Client) configure() (err error) {
 		return
 	}
 
-	timeout := 20 * time.Minute // Default timeout
+	timeout := 20 * time.Minute
 
 	if o.ApiHttpTimeout != nil {
 		parsed, err := time.ParseDuration(o.ApiHttpTimeout.Value)
@@ -90,9 +103,7 @@ func (o *Client) configure() (err error) {
 	return
 }
 
-func (o *Client) ListModels(_ context.Context) (ret []string, err error) {
-	ctx := context.Background()
-
+func (o *Client) ListModels(ctx context.Context) (ret []string, err error) {
 	var listResp *ollamaapi.ListResponse
 	if listResp, err = o.client.List(ctx); err != nil {
 		return
@@ -104,8 +115,7 @@ func (o *Client) ListModels(_ context.Context) (ret []string, err error) {
 	return
 }
 
-func (o *Client) SendStream(_ context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions, channel chan domain.StreamUpdate) (err error) {
-	ctx := context.Background()
+func (o *Client) SendStream(ctx context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions, channel chan domain.StreamUpdate) (err error) {
 	defer close(channel)
 
 	var req ollamaapi.ChatRequest
@@ -160,8 +170,8 @@ func (o *Client) Send(ctx context.Context, msgs []*chat.ChatCompletionMessage, o
 }
 
 func (o *Client) createChatRequest(ctx context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions) (ret ollamaapi.ChatRequest, err error) {
-	// Some models (e.g. qwen3-coder, deepseek) return empty responses when
-	// the only message has role=system. Convert to role=user in that case.
+	// Some models, for example qwen3-coder and deepseek, return an empty response
+	// when the only message is a system message. Send it as a user message instead.
 	if len(msgs) == 1 && msgs[0].Role == chat.ChatMessageRoleSystem {
 		copy := *msgs[0]
 		copy.Role = chat.ChatMessageRoleUser
@@ -192,7 +202,6 @@ func (o *Client) createChatRequest(ctx context.Context, msgs []*chat.ChatComplet
 		Options:  options,
 	}
 
-	// Map Fabric's ThinkingLevel to Ollama's Think field
 	switch opts.Thinking {
 	case domain.ThinkingOff:
 		ret.Think = &ollamaapi.ThinkValue{Value: false}
@@ -210,7 +219,6 @@ func (o *Client) convertMessage(ctx context.Context, message *chat.ChatCompletio
 		return
 	}
 
-	// Pre-allocate with capacity hint
 	textParts := make([]string, 0, len(message.MultiContent))
 	if strings.TrimSpace(ret.Content) != "" {
 		textParts = append(textParts, strings.TrimSpace(ret.Content))
@@ -223,7 +231,6 @@ func (o *Client) convertMessage(ctx context.Context, message *chat.ChatCompletio
 				textParts = append(textParts, trimmed)
 			}
 		case chat.ChatMessagePartTypeImageURL:
-			// Nil guard
 			if part.ImageURL == nil || part.ImageURL.URL == "" {
 				continue
 			}
@@ -240,7 +247,6 @@ func (o *Client) convertMessage(ctx context.Context, message *chat.ChatCompletio
 }
 
 func (o *Client) loadImageBytes(ctx context.Context, imageURL string) (ret []byte, err error) {
-	// Handle data URLs (base64 encoded)
 	if strings.HasPrefix(imageURL, "data:") {
 		parts := strings.SplitN(imageURL, ",", 2)
 		if len(parts) != 2 {
@@ -253,14 +259,16 @@ func (o *Client) loadImageBytes(ctx context.Context, imageURL string) (ret []byt
 		return
 	}
 
-	// Handle HTTP URLs with context
 	var req *http.Request
 	if req, err = http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil); err != nil {
 		return
 	}
 
+	// The image URL comes from the session content. Thus use a client that
+	// connects only to public addresses. This client does not use
+	// transport_sec, thus the Ollama API key does not go to the image host.
 	var resp *http.Response
-	if resp, err = o.httpClient.Do(req); err != nil {
+	if resp, err = util.NewPublicHTTPClient(imageFetchTimeout, imageDialControl).Do(req); err != nil {
 		return
 	}
 	defer resp.Body.Close()
@@ -270,7 +278,13 @@ func (o *Client) loadImageBytes(ctx context.Context, imageURL string) (ret []byt
 		return
 	}
 
-	ret, err = io.ReadAll(resp.Body)
+	if ret, err = io.ReadAll(io.LimitReader(resp.Body, maxImageSize+1)); err != nil {
+		return
+	}
+	if len(ret) > maxImageSize {
+		ret = nil
+		err = fmt.Errorf(i18n.T("ollama_image_too_large"), imageURL, maxImageSize)
+	}
 	return
 }
 

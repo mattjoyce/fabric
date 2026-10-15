@@ -29,9 +29,7 @@
   const navItems = [
     { href: '/', label: 'Home' },
     { href: '/posts', label: 'Posts' },
-    // { href: '/tags', label: 'Tags' },
     { href: '/chat', label: 'Chat' },
-    //{ href: '/obsidian', label: 'Obsidian' },
     { href: '/contact', label: 'Contact' },
     { href: '/about', label: 'About' },
   ];
@@ -56,7 +54,6 @@
       </a>
     </div>
 
-    <!-- Desktop Navigation -->
     <nav class="hidden flex-1 px-8 md:flex">
       <ul class="flex items-center space-x-8">
         {#each navItems as { href, label }}
@@ -73,9 +70,7 @@
     </nav>
 
     <div class="flex items-center gap-4">
-      <!-- Pattern Buttons Group -->
       <div class="flex items-center gap-3 mr-4">
-        <!-- Pattern Tiles Button -->
         <button name="pattern-tiles"
           on:click={() => showPatternTilesModal = true}
           class="inline-flex h-10 items-center justify-center rounded-full border bg-background px-4 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground gap-2"
@@ -85,10 +80,8 @@
           <span>Pattern Tiles</span>
         </button>
         
-        <!-- Or text -->
         <span class="text-sm text-foreground/60 mx-1">or</span>
         
-        <!-- Pattern List Button -->
         <button name="pattern-list"
           on:click={() => showPatternModal = true}
           class="inline-flex h-10 items-center justify-center rounded-full border bg-background px-4 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground gap-2"
@@ -131,7 +124,6 @@
         <span class="sr-only">Help</span>
       </button>
 
-      <!-- Mobile Menu Button -->
       <button name="toggle-menu"
         class="inline-flex h-9 w-9 items-center justify-center rounded-lg border bg-background text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground md:hidden"
         on:click={toggleMenu}
@@ -147,7 +139,6 @@
     </div>
   </div>
 
-  <!-- Mobile Navigation -->
   {#if isMenuOpen}
     <div class="container md:hidden" transition:fade={{ duration: 200 }}>
       <nav class="flex flex-col space-y-4 p-4">
