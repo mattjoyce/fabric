@@ -1,4 +1,4 @@
-### PR [#2243](https://github.com/danielmiessler/Fabric/pull/2243) by [taljeon](https://github.com/taljeon): fix(ai): refresh model catalogs after vendor membership changes
+### PR [#2243](https://github.com/danielmiessler/Fabric/pull/2243) by [taljeon](https://github.com/taljeon) and [ksylvan](https://github.com/ksylvan): fix(ai): refresh model catalogs after vendor membership changes
 
 - Fixed model catalogs so they refresh automatically after vendor membership changes, ensuring newly registered vendors are reflected immediately.
 - Simplified cache invalidation in `AddVendors` by taking the `modelsMu` lock and clearing the cached models, reducing the change from 463 added lines to 25.
