@@ -3,62 +3,54 @@ package ai
 import (
 	"bytes"
 	"context"
+	"sync/atomic"
 	"testing"
 
 	"github.com/danielmiessler/fabric/internal/chat"
 	"github.com/danielmiessler/fabric/internal/domain"
 )
 
-type stubVendor struct {
-	name string
+type testVendor struct {
+	name  string
+	calls atomic.Int32
 }
 
-func (v *stubVendor) GetName() string                              { return v.name }
-func (v *stubVendor) GetSetupDescription() string                  { return "" }
-func (v *stubVendor) IsConfigured() bool                           { return true }
-func (v *stubVendor) Configure() error                             { return nil }
-func (v *stubVendor) Setup() error                                 { return nil }
-func (v *stubVendor) SetupFillEnvFileContent(*bytes.Buffer)        {}
-func (v *stubVendor) ListModels(context.Context) ([]string, error) { return nil, nil }
-func (v *stubVendor) SendStream(context.Context, []*chat.ChatCompletionMessage, *domain.ChatOptions, chan domain.StreamUpdate) error {
+func (v *testVendor) GetName() string                       { return v.name }
+func (v *testVendor) GetSetupDescription() string           { return "" }
+func (v *testVendor) IsConfigured() bool                    { return true }
+func (v *testVendor) Configure() error                      { return nil }
+func (v *testVendor) Setup() error                          { return nil }
+func (v *testVendor) SetupFillEnvFileContent(*bytes.Buffer) {}
+func (v *testVendor) ListModels(context.Context) ([]string, error) {
+	v.calls.Add(1)
+	return []string{v.name + "-model"}, nil
+}
+func (v *testVendor) SendStream(context.Context, []*chat.ChatCompletionMessage, *domain.ChatOptions, chan domain.StreamUpdate) error {
 	return nil
 }
-func (v *stubVendor) Send(context.Context, []*chat.ChatCompletionMessage, *domain.ChatOptions) (string, error) {
+func (v *testVendor) Send(context.Context, []*chat.ChatCompletionMessage, *domain.ChatOptions) (string, error) {
 	return "", nil
 }
-func (v *stubVendor) NeedsRawMode(string) bool { return false }
+func (v *testVendor) NeedsRawMode(string) bool { return false }
 
-func TestVendorsManagerFindByNameCaseInsensitive(t *testing.T) {
+// TestAddVendorsInvalidatesCachedModels validates that registering
+// a new vendor after warming the cache includes the new vendor's models.
+func TestAddVendorsInvalidatesCachedModels(t *testing.T) {
 	manager := NewVendorsManager()
-	vendor := &stubVendor{name: "OpenAI"}
+	first := &testVendor{name: "alpha"}
+	second := &testVendor{name: "beta"}
 
-	manager.AddVendors(vendor)
-
-	if got := manager.FindByName("openai"); got != vendor {
-		t.Fatalf("FindByName lowercase = %v, want %v", got, vendor)
+	manager.AddVendors(first)
+	if _, err := manager.GetModels(); err != nil {
+		t.Fatal(err)
 	}
 
-	if got := manager.FindByName("OPENAI"); got != vendor {
-		t.Fatalf("FindByName uppercase = %v, want %v", got, vendor)
+	manager.AddVendors(second)
+	models, err := manager.GetModels()
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	if got := manager.FindByName("OpenAI"); got != vendor {
-		t.Fatalf("FindByName mixed case = %v, want %v", got, vendor)
-	}
-}
-
-func TestVendorsManagerSetupVendorToCaseInsensitive(t *testing.T) {
-	manager := NewVendorsManager()
-	vendor := &stubVendor{name: "OpenAI"}
-
-	configured := map[string]Vendor{}
-	manager.setupVendorTo(vendor, configured)
-
-	if _, ok := configured["openai"]; !ok {
-		t.Fatalf("setupVendorTo should store vendor using lowercase key")
-	}
-
-	if _, ok := configured["OpenAI"]; ok {
-		t.Fatalf("setupVendorTo should not store vendor using original case key")
+	if got := models.FindModelNameCaseInsensitive("beta-model"); got != "beta-model" {
+		t.Errorf("new registered vendor missing from warmed cache: got=%q", got)
 	}
 }

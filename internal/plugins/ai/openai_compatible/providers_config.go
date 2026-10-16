@@ -284,6 +284,11 @@ var ProviderMap = map[string]ProviderConfig{
 		BaseURL:             "https://api.deepseek.com",
 		ImplementsResponses: false,
 	},
+	"DemonRoute": {
+		Name:                "DemonRoute",
+		BaseURL:             "https://api.demonroute.com/v1",
+		ImplementsResponses: false,
+	},
 	"Eden AI": {
 		Name:                "Eden AI",
 		BaseURL:             "https://api.edenai.run/v3",
@@ -349,6 +354,11 @@ var ProviderMap = map[string]ProviderConfig{
 		BaseURL:             "https://api.novita.ai/openai/v1",
 		ImplementsResponses: false,
 	},
+	"onomeo": {
+		Name:                "onomeo",
+		BaseURL:             "https://onomeo.com/v1",
+		ImplementsResponses: false,
+	},
 	"OpenCode Go": {
 		Name:                "OpenCode Go",
 		BaseURL:             "https://opencode.ai/zen/go/v1",
@@ -366,6 +376,11 @@ var ProviderMap = map[string]ProviderConfig{
 	"OpenRouter": {
 		Name:                "OpenRouter",
 		BaseURL:             "https://openrouter.ai/api/v1",
+		ImplementsResponses: false,
+	},
+	"Opper": {
+		Name:                "Opper",
+		BaseURL:             "https://api.opper.ai/v3/compat",
 		ImplementsResponses: false,
 	},
 	"OrcaRouter": {
@@ -406,6 +421,11 @@ var ProviderMap = map[string]ProviderConfig{
 	"Venice AI": {
 		Name:                "Venice AI",
 		BaseURL:             "https://api.venice.ai/api/v1",
+		ImplementsResponses: false,
+	},
+	"WebWright": {
+		Name:                "WebWright",
+		BaseURL:             "https://webwright.ai/v1",
 		ImplementsResponses: false,
 	},
 	"Y-API": {

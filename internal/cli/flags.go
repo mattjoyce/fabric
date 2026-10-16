@@ -72,11 +72,13 @@ type Flags struct {
 	ScrapeURL                       string               `short:"u" long:"scrape_url" description:"Scrape website URL to markdown using Jina AI"`
 	ScrapeQuestion                  string               `short:"q" long:"scrape_question" description:"Search question using Jina AI"`
 	SerplySearch                    string               `long:"serply_search" description:"Search Google using Serply and send the results to chat"`
+	FirecrawlSearch                 string               `long:"firecrawl_search" description:"Search the web using Firecrawl and send the top pages to chat as Markdown"`
 	Seed                            int                  `short:"e" long:"seed" yaml:"seed" description:"Seed to be used for LMM generation"`
 	WipeContext                     string               `short:"w" long:"wipecontext" description:"Wipe context"`
 	WipeSession                     string               `short:"W" long:"wipesession" description:"Wipe session"`
 	PrintContext                    string               `long:"printcontext" description:"Print context"`
 	PrintSession                    string               `long:"printsession" description:"Print session"`
+	PrintPrompt                     bool                 `long:"print-prompt" description:"Print the rendered prompt without sending it to a model"`
 	HtmlReadability                 bool                 `long:"readability" description:"Convert HTML input into a clean, readable view"`
 	InputHasVars                    bool                 `long:"input-has-vars" description:"Apply variables to user input"`
 	NoVariableReplacement           bool                 `long:"no-variable-replacement" description:"Disable pattern variable replacement"`
@@ -541,7 +543,7 @@ func (o *Flags) AppendMessage(message string) {
 }
 
 func (o *Flags) IsChatRequest() (ret bool) {
-	ret = o.Message != "" || len(o.Attachments) > 0 || o.Context != "" || o.Session != "" || o.Pattern != "" || o.Workflow != ""
+	ret = o.Message != "" || len(o.Attachments) > 0 || o.Context != "" || o.Session != "" || o.Pattern != "" || o.Workflow != "" || o.PrintPrompt
 	return
 }
 

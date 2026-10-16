@@ -227,6 +227,18 @@ func TestSend_NilClient_ReturnsError(t *testing.T) {
 	assert.Contains(t, err.Error(), i18n.T("bedrock_client_not_initialized"))
 }
 
+func TestResponseTextFromContent_SkipsReasoning(t *testing.T) {
+	content := []types.ContentBlock{
+		&types.ContentBlockMemberReasoningContent{},
+		&types.ContentBlockMemberText{Value: "summary"},
+	}
+
+	got, err := responseTextFromContent(content)
+
+	require.NoError(t, err)
+	assert.Equal(t, "summary", got)
+}
+
 func TestMaskSecret(t *testing.T) {
 	tests := []struct {
 		name     string

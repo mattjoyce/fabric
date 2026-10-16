@@ -31,6 +31,7 @@
 
 <p align="center">
   <strong>English</strong> ·
+  <a href="README.ar.md">العربية</a> ·
   <a href="README.zh.md">中文</a>
 </p>
 
@@ -368,6 +369,7 @@ Fabric supports a wide range of AI providers:
 - Cerebras
 - Cheaper Inference
 - DeepSeek
+- DemonRoute
 - DigitalOcean
 - Eden AI
 - GrokAI
@@ -380,6 +382,7 @@ Fabric supports a wide range of AI providers:
 - OpenCode Go
 - OpenCode Zen
 - OpenRouter
+- Opper
 - OrcaRouter
 - Pzero
 - Requesty
@@ -594,13 +597,17 @@ fabric --setup
 
 Then [set your environmental variables](#environment-variables) as shown above.
 
-### Upgrading
+### Upgrading/Replacing
 
-The great thing about Go is that it's super easy to upgrade. Just run the same command you used to install it in the first place and you'll always get the latest version.
+The great thing about Go is that it's super easy to upgrade or replace an existing installation. Just run the same command you used to install it in the first place and you'll always get the latest version, automatically replacing the old one.
 
 ```bash
 go install github.com/danielmiessler/fabric/cmd/fabric@latest
 ```
+
+If you're replacing an existing installation, simply run the above command and Go will automatically replace the old version with the new one.
+
+**Important note**: If you run `fabric --setup` after upgrading, you may need to reconfigure some settings or keys if there are configuration changes between versions.
 
 ### Shell Completions
 
@@ -728,11 +735,13 @@ Application Options:
   -u, --scrape_url=                 Scrape website URL to markdown using Jina AI
   -q, --scrape_question=            Search question using Jina AI
       --serply_search=              Search Google using Serply and send the results to chat
+      --firecrawl_search=           Search the web using Firecrawl and send the top pages to chat as Markdown
   -e, --seed=                       Seed to be used for LMM generation
   -w, --wipecontext=                Wipe context
   -W, --wipesession=                Wipe session
       --printcontext=               Print context
       --printsession=               Print session
+      --print-prompt                Print the rendered prompt without sending it to a model
       --readability                 Convert HTML input into a clean, readable view
       --input-has-vars              Apply variables to user input
       --no-variable-replacement     Disable pattern variable replacement
@@ -799,6 +808,18 @@ echo "test input" | fabric --dry-run -p summarize
 ```
 
 This is useful for debugging patterns, checking prompt construction, and verifying input formatting before using API credits.
+
+### Prompt Export
+
+Use `--print-prompt` to render Fabric's composed prompt and exit before any model call:
+
+```bash
+echo "test input" | fabric --print-prompt -p summarize
+```
+
+This is useful when you want to reuse Fabric's prompt library with other CLI LLM tools or inspect the exact system and user message structure Fabric would compose.
+
+Some models need raw mode, which merges the system message into the user message. To show the structure for such a model, give the model with `-m` (or `FABRIC_MODEL_<PATTERN>`). Fabric then finds the vendor, which can send a model-list request. Without a model, the export shows the system and user messages separately, unless you set `--raw`.
 
 ### Extensions
 
