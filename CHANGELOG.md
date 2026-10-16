@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.4.524 (2026-10-16)
+
+### PR [#2244](https://github.com/danielmiessler/Fabric/pull/2244) by [taljeon](https://github.com/taljeon): fix(core): preserve the selected vendor model spelling
+
+- Preserve the selected vendor's canonical model spelling for explicit vendor and vendor/model-prefix requests.
+- Add regression tests for case-insensitively equal IDs with different vendor spellings and catalog order.
+
 ## v1.4.523 (2026-10-16)
 
 ### PR [#2243](https://github.com/danielmiessler/Fabric/pull/2243) by [taljeon](https://github.com/taljeon) and [ksylvan](https://github.com/ksylvan): fix(ai): refresh model catalogs after vendor membership changes
