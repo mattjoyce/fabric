@@ -30,14 +30,16 @@ type VendorsManager struct {
 
 // AddVendors registers one or more vendors with the manager.
 // Vendors are stored with lowercase keys to enable case-insensitive lookup.
-// AddVendors does not lock. Call it only at startup, before other
-// goroutines use the manager.
+// Membership changes invalidate the model catalog.
 func (o *VendorsManager) AddVendors(vendors ...Vendor) {
+	o.modelsMu.Lock()
+	defer o.modelsMu.Unlock()
 	for _, vendor := range vendors {
 		name := strings.ToLower(vendor.GetName())
 		o.VendorsByName[name] = vendor
 		o.Vendors = append(o.Vendors, vendor)
 	}
+	o.Models = nil
 }
 
 func (o *VendorsManager) Clear() {
