@@ -32,7 +32,9 @@ var samplingParamsDisallowedPrefixes = []string{
 	"claude-opus-4-8",
 	"claude-opus-5",
 	"claude-sonnet-5",
+	"claude-haiku-5",
 	"claude-fable-5",
+	"claude-mythos",
 }
 
 func modelDisallowsSamplingParams(model string) bool {
@@ -49,9 +51,13 @@ func modelDisallowsSamplingParams(model string) bool {
 //	Use "thinking.type.adaptive" and "output_config.effort" to control
 //	thinking behavior.
 var adaptiveThinkingPrefixes = []string{
+	"claude-opus-4-7",
+	"claude-opus-4-8",
 	"claude-opus-5",
 	"claude-sonnet-5",
+	"claude-haiku-5",
 	"claude-fable-5",
+	"claude-mythos-5",
 }
 
 func modelUsesAdaptiveThinking(model string) bool {
