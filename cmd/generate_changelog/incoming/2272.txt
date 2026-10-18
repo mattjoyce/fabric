@@ -1,0 +1,7 @@
+### PR [#2272](https://github.com/danielmiessler/Fabric/pull/2272) by [ksylvan](https://github.com/ksylvan): fix: refuse writes into .git through its Windows 8.3 short name
+
+- Fixed a security gap that allowed writes into the `.git` directory through its Windows 8.3 short name (`GIT~1`), which could let `create_coding_feature` plant a Git hook.
+- Updated `unsafePath` to reject any path component that resolves to the same file as the `.git` entry in its parent directory, using `os.SameFile`.
+- Added a Windows test covering the `git~1` alias.
+- Added a `windows-latest` job to the CI workflow.
+- Limited the Windows CI job to the file manager domain tests (run with `-v`), since other packages fail on Windows due to path separators, shell scripts, and a notification timeout.
