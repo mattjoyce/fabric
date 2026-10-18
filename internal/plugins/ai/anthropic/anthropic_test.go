@@ -488,6 +488,27 @@ func TestParseThinking_OffIsDisabledOnBothGenerations(t *testing.T) {
 	}
 }
 
+func TestParseThinking_OffOnModelsThatRejectDisabledThinking(t *testing.T) {
+	thinking, effort, ok := parseThinking(domain.ThinkingOff, "claude-sonnet-5-5")
+	if !ok || thinking.OfBetweenTools == nil || thinking.OfDisabled != nil || effort != "" {
+		t.Errorf("claude-sonnet-5-5: expected between_tools with no effort, got %+v effort=%q ok=%v", thinking, effort, ok)
+	}
+	for _, model := range []string{"claude-opus-5-5", "claude-fable-5-1", "claude-fable-5", "claude-mythos-5-1", "claude-mythos-preview"} {
+		thinking, effort, ok := parseThinking(domain.ThinkingOff, model)
+		if !ok || thinking.OfAdaptive == nil || thinking.OfDisabled != nil {
+			t.Errorf("model %s: expected adaptive thinking instead of disabled, got %+v ok=%v", model, thinking, ok)
+		}
+		if effort != anthropic.OutputConfigEffortLow {
+			t.Errorf("model %s: expected low effort, got %q", model, effort)
+		}
+	}
+	for _, model := range []string{"claude-opus-5", "claude-sonnet-5", "claude-haiku-5-5", "claude-opus-4-8"} {
+		if thinking, _, _ := parseThinking(domain.ThinkingOff, model); thinking.OfDisabled == nil {
+			t.Errorf("model %s: expected thinking to stay disabled", model)
+		}
+	}
+}
+
 func TestParseThinking_NumericBudgetBucketsToEffortOnAdaptiveModel(t *testing.T) {
 	for _, tc := range []struct {
 		tokens string
