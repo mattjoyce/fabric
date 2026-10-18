@@ -137,8 +137,8 @@ schema = 3
     version = "v1.1.0"
     hash = "sha256-oePAjhI+dYRrMQAeUWnJ3o+PdHFU1tk1Z/R3/kGdjnw="
   [mod."github.com/gabriel-vasile/mimetype"]
-    version = "v1.4.15"
-    hash = "sha256-MSmdWIAtF32qz02SDQx+cuj8EZCFUemTCAQPFq42JN0="
+    version = "v1.4.16"
+    hash = "sha256-Rh2Hz9Dv7fcKnI6mepScae2KpmBdhjxqIJW5HVVOJWs="
   [mod."github.com/gin-contrib/sse"]
     version = "v1.1.2"
     hash = "sha256-9QQPbX41wqHcdmG5WyT1gIkTSBkcqfqihFV/4odVYS0="
@@ -299,11 +299,11 @@ schema = 3
     version = "v2.6.1"
     hash = "sha256-ag/8GBAwqkOyIVrdlaFYLxy9dgPOq7VbactrLmzxK7E="
   [mod."github.com/ollama/ollama"]
-    version = "v0.40.5"
-    hash = "sha256-c0v8j59+jy/Z3SlRtBUvZNQOL5+ZCSGHMCvFw6kwi2A="
+    version = "v0.40.6"
+    hash = "sha256-9wqDYEdReZ32W5rZQ/PXmMVAMcJ6OVTcD4RnF9AfVXc="
   [mod."github.com/openai/openai-go/v3"]
-    version = "v3.78.0"
-    hash = "sha256-ZWBPp82VYXCj/MIn0y9rqGPcBq3oWkRSHL5w0OmWAbc="
+    version = "v3.81.0"
+    hash = "sha256-GLgDQaUMb1bcxXwvE48jtjalauWzM+C7+cSQFvU1o6k="
   [mod."github.com/otiai10/copy"]
     version = "v1.14.1"
     hash = "sha256-8RR7u17SbYg9AeBXVHIv5ZMU+kHmOcx0rLUKyz6YtU0="

@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.4.526 (2026-10-18)
+
+### PR [#2270](https://github.com/danielmiessler/Fabric/pull/2270) by [pcbeingused333](https://github.com/pcbeingused333) and [kaylvan](https://github.com/kaylvan): fix(anthropic): send adaptive thinking and no sampling params to Haiku 5.5, Mythos and Opus 4.7/4.8
+
+- Fixed Anthropic requests by omitting sampling parameters (such as the default 0.7 temperature) for Claude Haiku 5.5 and Mythos models, which reject non-default values.
+- Extended adaptive thinking support to Opus 4.7, Opus 4.8, Haiku 5.5, and Mythos 5/5.1, preventing 400 errors caused by sending `budget_tokens` with `thinking.type=enabled`; Opus 4.6 remains the newest model that accepts it.
+- Added new Claude models, including Fable 5.1, Sonnet 5.5, Haiku 5.5, and Mythos 5 and 5.1.
+- Enabled million-token context beta support for all newly listed models.
+- Upgraded dependencies: mimetype to v1.4.16, Ollama to v0.40.6, and openai-go to v3.81.0.
+
 ## v1.4.525 (2026-10-18)
 
 ### PR [#2272](https://github.com/danielmiessler/Fabric/pull/2272) by [ksylvan](https://github.com/ksylvan): fix: refuse writes into .git through its Windows 8.3 short name
