@@ -95,6 +95,11 @@ func NewClient() (ret *Client) {
 	ret.defaultRequiredUserMessage = "Hi"
 	ret.models = []string{
 		string(anthropic.ModelClaudeOpus5_5),
+		string(anthropic.ModelClaudeFable5_1),
+		string(anthropic.ModelClaudeSonnet5_5),
+		string(anthropic.ModelClaudeHaiku5_5),
+		string(anthropic.ModelClaudeMythos5_1),
+		string(anthropic.ModelClaudeMythos5),
 		string(anthropic.ModelClaudeFable5),
 		string(anthropic.ModelClaudeSonnet5),
 		string(anthropic.ModelClaudeOpus5),
@@ -122,10 +127,15 @@ func NewClient() (ret *Client) {
 	// are not in the map.
 	const context1M = "context-1m-2025-08-07"
 	ret.modelBetas = map[string][]string{
-		string(anthropic.ModelClaudeOpus5_5): {context1M},
-		string(anthropic.ModelClaudeFable5):  {context1M},
-		string(anthropic.ModelClaudeOpus5):   {context1M},
-		string(anthropic.ModelClaudeSonnet5): {context1M},
+		string(anthropic.ModelClaudeOpus5_5):   {context1M},
+		string(anthropic.ModelClaudeFable5_1):  {context1M},
+		string(anthropic.ModelClaudeSonnet5_5): {context1M},
+		string(anthropic.ModelClaudeHaiku5_5):  {context1M},
+		string(anthropic.ModelClaudeMythos5_1): {context1M},
+		string(anthropic.ModelClaudeMythos5):   {context1M},
+		string(anthropic.ModelClaudeFable5):    {context1M},
+		string(anthropic.ModelClaudeOpus5):     {context1M},
+		string(anthropic.ModelClaudeSonnet5):   {context1M},
 
 		string(anthropic.ModelClaudeOpus4_8): {context1M},
 		string(anthropic.ModelClaudeOpus4_7): {context1M},

@@ -455,7 +455,7 @@ func TestParseThinking_AdaptiveModelUsesAdaptivePlusEffort(t *testing.T) {
 }
 
 func TestParseThinking_LegacyModelKeepsBudgetTokens(t *testing.T) {
-	thinking, effort, ok := parseThinking(domain.ThinkingMedium, "claude-opus-4-6")
+	thinking, effort, ok := parseThinking(domain.ThinkingMedium, string(anthropic.ModelClaudeOpus4_6))
 	if !ok {
 		t.Fatal("parseThinking returned ok=false")
 	}
@@ -519,10 +519,10 @@ func TestBuildMessageParams_ThinkingShapeFollowsModel(t *testing.T) {
 	}{
 		{anthropic.ModelClaudeSonnet5, true, anthropic.OutputConfigEffortMedium},
 		{anthropic.ModelClaudeOpus4_7, true, anthropic.OutputConfigEffortMedium},
-		{"claude-opus-4-8", true, anthropic.OutputConfigEffortMedium},
-		{"claude-haiku-5-5", true, anthropic.OutputConfigEffortMedium},
-		{"claude-mythos-5-1", true, anthropic.OutputConfigEffortMedium},
-		{"claude-opus-4-6", false, ""},
+		{anthropic.ModelClaudeOpus4_8, true, anthropic.OutputConfigEffortMedium},
+		{anthropic.ModelClaudeHaiku5_5, true, anthropic.OutputConfigEffortMedium},
+		{anthropic.ModelClaudeMythos5, true, anthropic.OutputConfigEffortMedium},
+		{anthropic.ModelClaudeOpus4_6, false, ""},
 	} {
 		params := NewClient().buildMessageParams(
 			[]anthropic.MessageParam{anthropic.NewUserMessage(anthropic.NewTextBlock("Hello"))},

@@ -10,7 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.33.9
 	github.com/aws/aws-sdk-go-v2/service/bedrock v1.73.4
 	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.63.4
-	github.com/gabriel-vasile/mimetype v1.4.15
+	github.com/gabriel-vasile/mimetype v1.4.16
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-git/go-git/v5 v5.19.3
 	github.com/go-shiori/go-readability v0.0.0-20251205110129-5db1dc9836f0
@@ -21,8 +21,8 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/mattn/go-sqlite3 v1.14.52
 	github.com/nicksnyder/go-i18n/v2 v2.6.1
-	github.com/ollama/ollama v0.40.5
-	github.com/openai/openai-go/v3 v3.78.0
+	github.com/ollama/ollama v0.40.6
+	github.com/openai/openai-go/v3 v3.81.0
 	github.com/otiai10/copy v1.14.1
 	github.com/pkg/errors v0.9.1
 	github.com/samber/lo v1.53.0
