@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.4.528 (2026-10-19)
+
+### PR [#2276](https://github.com/danielmiessler/Fabric/pull/2276) by [ksylvan](https://github.com/ksylvan): fix(perplexity): move the Perplexity vendor to the Agent API
+
+- Fixed Perplexity requests that failed with "Sonar is now the Agent API". The vendor now uses the Perplexity Agent API (`/v1/responses`) through the OpenAI client, and the `perplexity-go` dependency is removed.
+- Saved Sonar model names continue to work: `sonar` maps to `perplexity/sonar`, `sonar-pro` to the `fast` preset, and `sonar-reasoning-pro` to the `low` preset. `fabric -L` lists the Agent API models and presets.
+- Perplexity search results show as numbered sources, in streaming and non-streaming modes. The numbers agree with the `[n]` markers in the answer.
+- Fixed streamed Perplexity answers that showed two times.
+
 ## v1.4.527 (2026-10-19)
 
 ### PR [#2273](https://github.com/danielmiessler/Fabric/pull/2273) by [ksylvan](https://github.com/ksylvan): fix(web): run predev and prebuild scripts on Windows
