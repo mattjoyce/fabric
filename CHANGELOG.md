@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.4.527 (2026-10-19)
+
+### PR [#2273](https://github.com/danielmiessler/Fabric/pull/2273) by [ksylvan](https://github.com/ksylvan): fix(web): run predev and prebuild scripts on Windows
+
+- Fixed the web `predev` and `prebuild` scripts failing on Windows, where `cmd.exe` lacks the `mkdir -p` and `cp` commands and caused `npm run dev` to abort before Vite started.
+- Replaced the shell commands with Node's `fs.cpSync`, which creates the `static/data` directory when missing and works across all platforms.
+
 ## v1.4.526 (2026-10-18)
 
 ### PR [#2270](https://github.com/danielmiessler/Fabric/pull/2270) by [pcbeingused333](https://github.com/pcbeingused333) and [kaylvan](https://github.com/kaylvan): fix(anthropic): send adaptive thinking and no sampling params to Haiku 5.5, Mythos and Opus 4.7/4.8
