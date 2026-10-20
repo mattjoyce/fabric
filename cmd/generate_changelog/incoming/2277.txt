@@ -1,4 +1,4 @@
-### PR [#2277](https://github.com/danielmiessler/Fabric/pull/2277) by [pcbeingused333](https://github.com/pcbeingused333): fix(server): redact the API key in the recovery request dumps
+### PR [#2277](https://github.com/danielmiessler/Fabric/pull/2277) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(server): redact the API key in the recovery request dumps
 
 - Fixed the server so that `gin.Recovery()` request dumps no longer leak the `X-API-Key` header in clear text; `Cookie` and `Proxy-Authorization` are now masked as well.
 - Applied the redaction through the Gin recovery middleware, so both the REST and Ollama servers are protected, with tests covering the debug-mode panic dump and the broken-pipe dump.
