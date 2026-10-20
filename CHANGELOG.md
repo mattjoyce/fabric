@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.4.531 (2026-10-20)
+
+### PR [#2279](https://github.com/danielmiessler/Fabric/pull/2279) by [pcbeingused333](https://github.com/pcbeingused333): fix: keep the Codex login waiting after a callback with the wrong state
+
+- Kept the Codex OAuth login waiting when a callback arrives with the wrong state, answering it with 400 instead of ending the pending login.
+- Added a regression test for a callback with a mismatched state followed by a valid one.
+
 ## v1.4.530 (2026-10-20)
 
 ### PR [#2277](https://github.com/danielmiessler/Fabric/pull/2277) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(server): redact the API key in the recovery request dumps
