@@ -1,0 +1,3 @@
+### PR [#2280](https://github.com/danielmiessler/Fabric/pull/2280) by [pcbeingused333](https://github.com/pcbeingused333): fix(plugins): mask secret setting values in setup prompts and output
+
+- Mark settings named like a credential as sensitive and show a mask instead of their value in the setup prompt, `Print` and the invalid-setting error.
