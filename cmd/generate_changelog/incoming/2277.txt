@@ -1,0 +1,3 @@
+### PR [#2277](https://github.com/danielmiessler/Fabric/pull/2277) by [pcbeingused333](https://github.com/pcbeingused333): fix(server): redact the API key in the recovery request dumps
+
+- Masked the `X-API-Key`, `Cookie` and `Proxy-Authorization` headers in the request dumps that gin's recovery middleware prints on a debug-mode panic or a broken pipe, which previously logged the server API key in clear.
