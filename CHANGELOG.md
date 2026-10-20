@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.4.530 (2026-10-20)
+
+### PR [#2277](https://github.com/danielmiessler/Fabric/pull/2277) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(server): redact the API key in the recovery request dumps
+
+- Fixed the server so that `gin.Recovery()` request dumps no longer leak the `X-API-Key` header in clear text; `Cookie` and `Proxy-Authorization` are now masked as well.
+- Applied the redaction through the Gin recovery middleware, so both the REST and Ollama servers are protected, with tests covering the debug-mode panic dump and the broken-pipe dump.
+- Exported `RedactingWriter` and simplified the recovery log redaction logic, splitting request dumps on CRLF and matching header prefixes case-sensitively.
+- Fixed flaky CLI image tests by isolating their files in a private temporary directory instead of the shared `/tmp`, preventing "image file already exists" failures during parallel runs.
+- Switched image test paths to automatic `t.TempDir()` cleanup and portable path construction with `filepath.Join`.
+
 ## v1.4.529 (2026-10-20)
 
 ### PR [#2278](https://github.com/danielmiessler/Fabric/pull/2278) by [ksylvan](https://github.com/ksylvan): feat: add OVHcloud as an OpenAI-compatible AI provider
