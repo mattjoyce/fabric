@@ -513,7 +513,7 @@ func (c *BedrockClient) SendStream(_ context.Context, msgs []*chat.ChatCompletio
 				Type:    domain.StreamTypeContent,
 				Content: "\n",
 			}
-			return nil // The deferred func closes the channel.
+			// Keep reading: the usage arrives in the Metadata event after MessageStop.
 
 		case *types.ConverseStreamOutputMemberMetadata:
 			if v.Value.Usage != nil {
@@ -535,6 +535,12 @@ func (c *BedrockClient) SendStream(_ context.Context, msgs []*chat.ChatCompletio
 		default:
 			return fmt.Errorf(i18n.T("bedrock_unknown_stream_event_type"), v)
 		}
+	}
+
+	// A stream cut short by an error ends the loop like a finished one: report it, so the
+	// partial answer is not taken for a complete one.
+	if streamErr := response.GetStream().Err(); streamErr != nil {
+		return fmt.Errorf(i18n.T("bedrock_conversestream_failed"), opts.Model, streamErr)
 	}
 
 	return nil
