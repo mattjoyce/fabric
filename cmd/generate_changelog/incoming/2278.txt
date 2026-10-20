@@ -1,0 +1,6 @@
+### PR [#2278](https://github.com/danielmiessler/Fabric/pull/2278) by [ksylvan](https://github.com/ksylvan): feat: add OVHcloud as an OpenAI-compatible AI provider
+
+- Feat: add OVHcloud as an OpenAI-compatible AI provider
+
+- Configure OVHcloud's API endpoint without Responses API support.
+- Add OVHcloud to the README's supported provider list.
