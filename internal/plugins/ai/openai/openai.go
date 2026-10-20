@@ -141,6 +141,9 @@ func checkImageGenerationCompatibility(model string) {
 }
 
 func (o *Client) configure() (ret error) {
+	if ret = plugins.RequireSecureBaseURL(o.ApiBaseURL.Value); ret != nil {
+		return
+	}
 	opts := []option.RequestOption{option.WithAPIKey(o.ApiKey.Value)}
 	if o.ApiBaseURL.Value != "" {
 		opts = append(opts, option.WithBaseURL(o.ApiBaseURL.Value))

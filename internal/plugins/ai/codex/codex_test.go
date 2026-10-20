@@ -899,3 +899,26 @@ func TestRunOAuthFlowIgnoresCallbackWithWrongState(t *testing.T) {
 		t.Fatalf("wrong-state callback status = %d, want %d", got, http.StatusBadRequest)
 	}
 }
+
+func TestConfigureRejectsPlaintextRemoteOrigins(t *testing.T) {
+	for _, tc := range []struct{ name, api, auth string }{
+		{"auth origin", defaultBaseURL, "http://auth.example.com"},
+		{"api origin", "http://api.example.com/codex", defaultAuthBaseURL},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			client := NewClient()
+			client.ApiBaseURL.Value = tc.api
+			client.AuthBaseURL.Value = tc.auth
+			client.RefreshToken.Value = "synthetic-refresh-token"
+
+			// The check runs before any token request, so nothing is sent.
+			err := client.configure()
+			if err == nil || !strings.Contains(err.Error(), "plaintext") {
+				t.Fatalf("configure() error = %v, want a plaintext refusal", err)
+			}
+			if strings.Contains(err.Error(), "synthetic-refresh-token") {
+				t.Fatalf("error leaks the refresh token: %v", err)
+			}
+		})
+	}
+}

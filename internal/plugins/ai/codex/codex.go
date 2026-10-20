@@ -149,6 +149,13 @@ func (c *Client) configure() error {
 	if strings.TrimSpace(c.RefreshToken.Value) == "" {
 		return errors.New(i18n.T("codex_refresh_token_required"))
 	}
+	// The refresh token goes to the auth origin, the access token to the API origin.
+	if err := plugins.RequireSecureBaseURL(c.AuthBaseURL.Value); err != nil {
+		return err
+	}
+	if err := plugins.RequireSecureBaseURL(c.ApiBaseURL.Value); err != nil {
+		return err
+	}
 
 	if _, _, err := c.ensureAccessToken(context.Background(), false); err != nil {
 		return err

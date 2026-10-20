@@ -134,6 +134,8 @@
   "codex_provider_error": "codex provider error (status %d): %s",
   "codex_refresh_failed_status": "failed to refresh codex login (status %d)",
   "codex_refresh_login_failed": "failed to refresh Codex login: %w",
+  "plugins_error_invalid_base_url": "The base URL is not valid.",
+  "plugins_error_insecure_base_url": "Refusing to send credentials and prompts to %s in plaintext. Use an https:// URL; http:// is allowed only for localhost.",
   "codex_refresh_token_required": "Codex refresh token is required. Please rerun 'fabric --setup'.",
   "codex_replay_body_unavailable": "request body cannot be replayed for Codex re-authentication retry",
   "codex_request_failed": "codex request failed: %w",
