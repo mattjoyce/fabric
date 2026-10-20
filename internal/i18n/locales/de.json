@@ -126,7 +126,6 @@
   "codex_login_return_to_fabric": "Zurück zu Fabric.",
   "codex_login_revoked": "Die Codex-Anmeldung ist abgelaufen oder wurde widerrufen. Bitte führen Sie 'fabric --setup' erneut aus.",
   "codex_login_server_stopped": "Der Codex-Anmelde-Callback-Server wurde gestoppt, bevor die Authentifizierung abgeschlossen war.",
-  "codex_login_state_mismatch": "Die Codex-Anmeldung konnte nicht verifiziert werden, da der OAuth-Status nicht übereinstimmte.",
   "codex_login_timed_out": "Zeitüberschreitung bei der Codex-Anmeldung vor Abschluss der Authentifizierung.",
   "codex_oauth_missing_auth_code": "Fehlender Autorisierungscode",
   "codex_oauth_random_state_failed": "Sicherer zufälliger OAuth-Status konnte nicht generiert werden: %w",

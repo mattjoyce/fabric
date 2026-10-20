@@ -126,7 +126,6 @@
   "codex_login_return_to_fabric": "Torna a Fabric.",
   "codex_login_revoked": "L'accesso Codex è scaduto o è stato revocato. Eseguire di nuovo 'fabric --setup'.",
   "codex_login_server_stopped": "Il server di callback dell'accesso Codex si è fermato prima del completamento dell'autenticazione.",
-  "codex_login_state_mismatch": "L'accesso Codex non è stato verificato perché lo stato OAuth non corrispondeva.",
   "codex_login_timed_out": "L'accesso Codex è scaduto prima del completamento dell'autenticazione.",
   "codex_oauth_missing_auth_code": "Codice di autorizzazione mancante",
   "codex_oauth_random_state_failed": "Generazione dello stato OAuth casuale sicuro non riuscita: %w",

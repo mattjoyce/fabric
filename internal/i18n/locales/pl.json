@@ -126,7 +126,6 @@
   "codex_login_return_to_fabric": "Wróć do Fabric.",
   "codex_login_revoked": "Logowanie Codex wygasło lub zostało unieważnione. Uruchom ponownie 'fabric --setup'.",
   "codex_login_server_stopped": "Serwer zwrotny logowania Codex zatrzymał się przed zakończeniem uwierzytelniania.",
-  "codex_login_state_mismatch": "Nie można zweryfikować logowania Codex, ponieważ stan OAuth nie był zgodny.",
   "codex_login_timed_out": "Upłynął limit czasu logowania Codex przed zakończeniem uwierzytelniania.",
   "codex_oauth_missing_auth_code": "Brak kodu autoryzacji",
   "codex_oauth_random_state_failed": "Nie udało się wygenerować bezpiecznego losowego stanu OAuth: %w",

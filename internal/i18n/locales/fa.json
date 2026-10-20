@@ -126,7 +126,6 @@
   "codex_login_return_to_fabric": "بازگشت به Fabric.",
   "codex_login_revoked": "ورود Codex منقضی شده یا لغو شده است. لطفاً 'fabric --setup' را دوباره اجرا کنید.",
   "codex_login_server_stopped": "سرور بازگشت ورود Codex قبل از تکمیل احراز هویت متوقف شد.",
-  "codex_login_state_mismatch": "ورود Codex قابل تأیید نبود زیرا وضعیت OAuth مطابقت نداشت.",
   "codex_login_timed_out": "زمان ورود Codex قبل از تکمیل احراز هویت به پایان رسید.",
   "codex_oauth_missing_auth_code": "کد مجوز موجود نیست",
   "codex_oauth_random_state_failed": "تولید وضعیت تصادفی امن OAuth ناموفق بود: %w",

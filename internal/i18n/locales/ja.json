@@ -126,7 +126,6 @@
   "codex_login_return_to_fabric": "Fabricに戻る。",
   "codex_login_revoked": "Codexログインが期限切れまたは取り消されました。'fabric --setup'を再実行してください。",
   "codex_login_server_stopped": "認証が完了する前にCodexログインコールバックサーバーが停止しました。",
-  "codex_login_state_mismatch": "OAuthステートが一致しなかったため、Codexログインを検証できませんでした。",
   "codex_login_timed_out": "認証が完了する前にCodexログインがタイムアウトしました。",
   "codex_oauth_missing_auth_code": "認証コードがありません",
   "codex_oauth_random_state_failed": "安全なランダムOAuthステートの生成に失敗しました: %w",
