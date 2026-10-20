@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.4.529 (2026-10-20)
+
+### PR [#2278](https://github.com/danielmiessler/Fabric/pull/2278) by [ksylvan](https://github.com/ksylvan): feat: add OVHcloud as an OpenAI-compatible AI provider
+
+- Added OVHcloud as a new OpenAI-compatible AI provider.
+- Registered OVHcloud with its OpenAI-compatible API endpoint configuration.
+- Disabled Responses API support for the OVHcloud provider.
+- Documented OVHcloud support in the README and changelog.
+
 ## v1.4.528 (2026-10-19)
 
 ### PR [#2276](https://github.com/danielmiessler/Fabric/pull/2276) by [ksylvan](https://github.com/ksylvan): fix(perplexity): move the Perplexity vendor to the Agent API
