@@ -161,7 +161,7 @@ type Setting struct {
 // isSensitiveName reports whether a setting name holds a credential, such as
 // "API Key", "access_token" or "client secret".
 func isSensitiveName(name string) bool {
-	for _, word := range strings.Split(BuildEnvVariable(name), "_") {
+	for word := range strings.SplitSeq(BuildEnvVariable(name), "_") {
 		switch word {
 		case "KEY", "TOKEN", "SECRET", "PASSWORD":
 			return true
