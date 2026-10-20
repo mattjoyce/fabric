@@ -126,7 +126,6 @@
   "codex_login_return_to_fabric": "Return to Fabric.",
   "codex_login_revoked": "Codex login has expired or been revoked. Please rerun 'fabric --setup'.",
   "codex_login_server_stopped": "Codex login callback server stopped before authentication completed.",
-  "codex_login_state_mismatch": "Codex login could not be verified because the OAuth state did not match.",
   "codex_login_timed_out": "Codex login timed out before authentication completed.",
   "codex_oauth_missing_auth_code": "Missing authorization code",
   "codex_oauth_random_state_failed": "failed to generate secure random oauth state: %w",

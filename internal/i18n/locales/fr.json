@@ -126,7 +126,6 @@
   "codex_login_return_to_fabric": "Retourner à Fabric.",
   "codex_login_revoked": "La connexion Codex a expiré ou a été révoquée. Veuillez relancer 'fabric --setup'.",
   "codex_login_server_stopped": "Le serveur de rappel de connexion Codex s'est arrêté avant la fin de l'authentification.",
-  "codex_login_state_mismatch": "La connexion Codex n'a pas pu être vérifiée car l'état OAuth ne correspondait pas.",
   "codex_login_timed_out": "La connexion Codex a expiré avant la fin de l'authentification.",
   "codex_oauth_missing_auth_code": "Code d'autorisation manquant",
   "codex_oauth_random_state_failed": "Échec de la génération d'un état OAuth aléatoire sécurisé : %w",

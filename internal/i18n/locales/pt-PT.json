@@ -126,7 +126,6 @@
   "codex_login_return_to_fabric": "Voltar ao Fabric.",
   "codex_login_revoked": "O início de sessão do Codex expirou ou foi revogado. Execute 'fabric --setup' novamente.",
   "codex_login_server_stopped": "O servidor de retorno do início de sessão do Codex parou antes da autenticação ser concluída.",
-  "codex_login_state_mismatch": "O início de sessão do Codex não pôde ser verificado porque o estado OAuth não correspondeu.",
   "codex_login_timed_out": "O início de sessão do Codex expirou antes da autenticação ser concluída.",
   "codex_oauth_missing_auth_code": "Código de autorização em falta",
   "codex_oauth_random_state_failed": "Falha ao gerar estado OAuth aleatório seguro: %w",

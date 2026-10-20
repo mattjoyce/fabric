@@ -126,7 +126,6 @@
   "codex_login_return_to_fabric": "返回 Fabric。",
   "codex_login_revoked": "Codex 登录已过期或被撤销。请重新运行 'fabric --setup'。",
   "codex_login_server_stopped": "Codex 登录回调服务器在身份验证完成前停止。",
-  "codex_login_state_mismatch": "由于 OAuth 状态不匹配，无法验证 Codex 登录。",
   "codex_login_timed_out": "Codex 登录在身份验证完成前超时。",
   "codex_oauth_missing_auth_code": "缺少授权码",
   "codex_oauth_random_state_failed": "生成安全随机 OAuth 状态失败：%w",
