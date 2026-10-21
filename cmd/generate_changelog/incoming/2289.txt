@@ -1,0 +1,3 @@
+### PR [#2289](https://github.com/danielmiessler/Fabric/pull/2289) by [pcbeingused333](https://github.com/pcbeingused333): fix(plugins): refuse plaintext http to remote hosts for OpenAI, Exolab and Codex
+
+- Require https for remote base URLs of the OpenAI, Exolab and Codex providers; http stays allowed for loopback hosts.
