@@ -13,6 +13,7 @@ import (
 	"github.com/danielmiessler/fabric/internal/i18n"
 	debuglog "github.com/danielmiessler/fabric/internal/log"
 	"github.com/danielmiessler/fabric/internal/plugins"
+	anthropicplugin "github.com/danielmiessler/fabric/internal/plugins/ai/anthropic"
 	"github.com/danielmiessler/fabric/internal/plugins/ai/geminicommon"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -126,6 +127,19 @@ func getMaxTokens(opts *domain.ChatOptions) int64 {
 	return int64(defaultMaxTokens)
 }
 
+// setSamplingParams sets Temperature or TopP on a Claude request, as the model allows.
+// Some Claude models reject both, and the others reject a request that sets both.
+func setSamplingParams(params *anthropic.MessageNewParams, opts *domain.ChatOptions) {
+	if anthropicplugin.ModelDisallowsSamplingParams(opts.Model) {
+		return
+	}
+	if opts.TopP != domain.DefaultTopP {
+		params.TopP = anthropic.Opt(opts.TopP)
+	} else {
+		params.Temperature = anthropic.Opt(opts.Temperature)
+	}
+}
+
 func (c *Client) sendClaude(ctx context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions) (string, error) {
 	if c.client == nil {
 		return "", errors.New(i18n.T("vertexai_client_not_initialized"))
@@ -142,12 +156,7 @@ func (c *Client) sendClaude(ctx context.Context, msgs []*chat.ChatCompletionMess
 		Messages:  anthropicMessages,
 	}
 
-	// Some Claude models reject a request that sets both Temperature and TopP.
-	if opts.TopP != domain.DefaultTopP {
-		params.TopP = anthropic.Opt(opts.TopP)
-	} else {
-		params.Temperature = anthropic.Opt(opts.Temperature)
-	}
+	setSamplingParams(&params, opts)
 
 	response, err := c.client.Messages.New(ctx, params)
 	if err != nil {
@@ -195,12 +204,7 @@ func (c *Client) sendStreamClaude(msgs []*chat.ChatCompletionMessage, opts *doma
 		Messages:  anthropicMessages,
 	}
 
-	// Some Claude models reject a request that sets both Temperature and TopP.
-	if opts.TopP != domain.DefaultTopP {
-		params.TopP = anthropic.Opt(opts.TopP)
-	} else {
-		params.Temperature = anthropic.Opt(opts.Temperature)
-	}
+	setSamplingParams(&params, opts)
 
 	stream := c.client.Messages.NewStreaming(ctx, params)
 

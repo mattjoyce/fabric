@@ -26,7 +26,7 @@ const sourcesHeader = "## Sources"
 
 // These models reject non-default sampling parameters.
 // Requests to them do not include temperature or top_p.
-var samplingParamsDisallowedPrefixes = []string{
+var samplingParamsDisallowedModels = []string{
 	"claude-opus-4-7",
 	"claude-opus-4-8",
 	"claude-opus-5",
@@ -36,9 +36,13 @@ var samplingParamsDisallowedPrefixes = []string{
 	"claude-mythos",
 }
 
-func modelDisallowsSamplingParams(model string) bool {
-	return slices.ContainsFunc(samplingParamsDisallowedPrefixes, func(prefix string) bool {
-		return strings.HasPrefix(model, prefix)
+// ModelDisallowsSamplingParams reports whether a Claude model rejects temperature and top_p.
+// It matches anywhere in the ID, so Bedrock (`us.anthropic.claude-opus-5-5-v1:0`),
+// Vertex AI (`claude-opus-4-7@20260101`) and gateway (`anthropic/claude-opus-5`) IDs
+// resolve like the plain ones. Other plugins that call Claude use it too.
+func ModelDisallowsSamplingParams(model string) bool {
+	return slices.ContainsFunc(samplingParamsDisallowedModels, func(name string) bool {
+		return strings.Contains(model, name)
 	})
 }
 
@@ -300,7 +304,7 @@ func (an *Client) buildMessageParams(msgs []anthropic.MessageParam, opts *domain
 		Messages:  msgs,
 	}
 
-	if modelDisallowsSamplingParams(opts.Model) {
+	if ModelDisallowsSamplingParams(opts.Model) {
 		// Send no sampling parameters to these models.
 	} else if opts.TopP != domain.DefaultTopP {
 		params.TopP = anthropic.Opt(opts.TopP)
