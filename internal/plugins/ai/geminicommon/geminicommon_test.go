@@ -31,3 +31,50 @@ func TestOutputTokenCountIncludesThoughts(t *testing.T) {
 
 	assert.Equal(t, 90, OutputTokenCount(usage))
 }
+
+func TestBlockedError(t *testing.T) {
+	tests := []struct {
+		name     string
+		response *genai.GenerateContentResponse
+		wantErr  string
+	}{
+		{"nil response", nil, ""},
+		{"ordinary answer", &genai.GenerateContentResponse{Candidates: []*genai.Candidate{{FinishReason: genai.FinishReasonStop}}}, ""},
+		{"cut off by max tokens", &genai.GenerateContentResponse{Candidates: []*genai.Candidate{{FinishReason: genai.FinishReasonMaxTokens}}}, ""},
+		{
+			"blocked prompt",
+			&genai.GenerateContentResponse{PromptFeedback: &genai.GenerateContentResponsePromptFeedback{BlockReason: genai.BlockedReasonSafety}},
+			"the prompt was blocked: SAFETY",
+		},
+		{
+			"blocked prompt with message",
+			&genai.GenerateContentResponse{PromptFeedback: &genai.GenerateContentResponsePromptFeedback{BlockReason: genai.BlockedReasonOther, BlockReasonMessage: "not allowed"}},
+			"the prompt was blocked: OTHER (not allowed)",
+		},
+		{
+			"stopped by safety",
+			&genai.GenerateContentResponse{Candidates: []*genai.Candidate{{FinishReason: genai.FinishReasonSafety, FinishMessage: "unsafe"}}},
+			"the response was stopped: SAFETY (unsafe)",
+		},
+		{
+			"stopped by a blocklist",
+			&genai.GenerateContentResponse{Candidates: []*genai.Candidate{nil, {FinishReason: genai.FinishReasonBlocklist}}},
+			"the response was stopped: BLOCKLIST",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := BlockedError(tt.response)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+				return
+			}
+			if err == nil || err.Error() != tt.wantErr {
+				t.Fatalf("expected error %q, got %v", tt.wantErr, err)
+			}
+		})
+	}
+}

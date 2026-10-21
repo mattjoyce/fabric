@@ -83,6 +83,36 @@ func OutputTokenCount(usage *genai.GenerateContentResponseUsageMetadata) int {
 	return int(usage.CandidatesTokenCount) + int(usage.ThoughtsTokenCount)
 }
 
+// BlockedError returns an error when Gemini refused to answer: the prompt was blocked
+// (no candidates, and the reason is in the prompt feedback), or the answer stopped
+// because of a safety or content filter. Without it such a response looks like an empty
+// answer. It returns nil for an ordinary response, including one cut off by max tokens.
+func BlockedError(response *genai.GenerateContentResponse) error {
+	if response == nil {
+		return nil
+	}
+	if feedback := response.PromptFeedback; feedback != nil && feedback.BlockReason != "" {
+		if feedback.BlockReasonMessage != "" {
+			return fmt.Errorf("the prompt was blocked: %s (%s)", feedback.BlockReason, feedback.BlockReasonMessage)
+		}
+		return fmt.Errorf("the prompt was blocked: %s", feedback.BlockReason)
+	}
+	for _, candidate := range response.Candidates {
+		if candidate == nil {
+			continue
+		}
+		switch candidate.FinishReason {
+		case genai.FinishReasonSafety, genai.FinishReasonRecitation, genai.FinishReasonBlocklist,
+			genai.FinishReasonProhibitedContent, genai.FinishReasonSPII, genai.FinishReasonImageSafety:
+			if candidate.FinishMessage != "" {
+				return fmt.Errorf("the response was stopped: %s (%s)", candidate.FinishReason, candidate.FinishMessage)
+			}
+			return fmt.Errorf("the response was stopped: %s", candidate.FinishReason)
+		}
+	}
+	return nil
+}
+
 // ExtractTextWithCitations extracts text content from the response and appends
 // any web citations in a standardized format.
 func ExtractTextWithCitations(response *genai.GenerateContentResponse) string {

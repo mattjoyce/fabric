@@ -165,6 +165,10 @@ func (o *Client) SendStream(_ context.Context, msgs []*chat.ChatCompletionMessag
 				},
 			}
 		}
+
+		if blockedErr := geminicommon.BlockedError(response); blockedErr != nil {
+			return blockedErr
+		}
 	}
 
 	return

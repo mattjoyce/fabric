@@ -362,6 +362,10 @@ func (c *Client) sendStreamGemini(msgs []*chat.ChatCompletionMessage, opts *doma
 				},
 			}
 		}
+
+		if blockedErr := geminicommon.BlockedError(response); blockedErr != nil {
+			return blockedErr
+		}
 	}
 
 	return nil
