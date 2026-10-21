@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.4.533 (2026-10-21)
+
+### PR [#2281](https://github.com/danielmiessler/Fabric/pull/2281) by [pcbeingused333](https://github.com/pcbeingused333): fix(anthropic): return the error that ends a stream
+
+- Return a mid-stream Anthropic error from SendStream instead of printing it and exiting with status 0.
+
 ## v1.4.532 (2026-10-20)
 
 ### PR [#2280](https://github.com/danielmiessler/Fabric/pull/2280) by [pcbeingused333](https://github.com/pcbeingused333): fix(plugins): mask secret setting values in setup prompts and output
