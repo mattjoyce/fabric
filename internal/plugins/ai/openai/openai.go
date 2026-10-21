@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -141,7 +142,8 @@ func checkImageGenerationCompatibility(model string) {
 }
 
 func (o *Client) configure() (ret error) {
-	if ret = plugins.RequireSecureBaseURL(o.ApiBaseURL.Value); ret != nil {
+	// With no base URL, the SDK reads OPENAI_BASE_URL from the environment.
+	if ret = plugins.RequireSecureBaseURL(cmp.Or(o.ApiBaseURL.Value, os.Getenv("OPENAI_BASE_URL"))); ret != nil {
 		return
 	}
 	opts := []option.RequestOption{option.WithAPIKey(o.ApiKey.Value)}

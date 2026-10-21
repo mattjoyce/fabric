@@ -5,3 +5,4 @@
 - Tightened server bind authentication by requiring API keys for binds using localhost subdomains.
 - Consolidated Codex authentication and API endpoint security checks, with shared loopback detection across endpoint validation and middleware.
 - Localized base URL validation errors across all supported locales.
+- If you use an `http://` base URL to a host other than localhost, change it to `https://` or use a local tunnel. Otherwise the vendor is not loaded. Run with `--debug=3` to see the reason.

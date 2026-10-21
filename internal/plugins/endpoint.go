@@ -20,7 +20,7 @@ func RequireSecureBaseURL(rawURL string) error {
 		return nil
 	}
 	parsed, err := url.Parse(rawURL)
-	if err != nil || parsed.Host == "" {
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 		return errors.New(i18n.T("plugin_invalid_base_url"))
 	}
 	switch parsed.Scheme {
