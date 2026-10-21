@@ -1,0 +1,3 @@
+### PR [#2286](https://github.com/danielmiessler/Fabric/pull/2286) by [pcbeingused333](https://github.com/pcbeingused333): fix(server): log request values quoted and upstream error bodies cut
+
+- Quote the request language and cut the upstream error body in the server log, so a line break cannot start a log line of its own.
