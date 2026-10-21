@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.4.534 (2026-10-21)
+
+### PR [#2282](https://github.com/danielmiessler/Fabric/pull/2282) by [pcbeingused333](https://github.com/pcbeingused333): fix(openai): replace the image models OpenAI retires on 2026-10-23
+
+- Use gpt-image-2.5-sunburst for the image generation tool and gpt-5.6-luna instead of gpt-4.1-nano in the supported image models.
+
+## v1.4.533 (2026-10-21)
+
+### PR [#2281](https://github.com/danielmiessler/Fabric/pull/2281) by [pcbeingused333](https://github.com/pcbeingused333): fix(anthropic): return the error that ends a stream
+
+- Return a mid-stream Anthropic error from SendStream instead of printing it and exiting with status 0.
+
+## v1.4.532 (2026-10-20)
+
+### PR [#2280](https://github.com/danielmiessler/Fabric/pull/2280) by [pcbeingused333](https://github.com/pcbeingused333): fix(plugins): mask secret setting values in setup prompts and output
+
+- Mark settings named like a credential as sensitive and show a mask instead of their value in the setup prompt, `Print` and the invalid-setting error.
+
 ## v1.4.531 (2026-10-20)
 
 ### PR [#2279](https://github.com/danielmiessler/Fabric/pull/2279) by [pcbeingused333](https://github.com/pcbeingused333): fix: keep the Codex login waiting after a callback with the wrong state
