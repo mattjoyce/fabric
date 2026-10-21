@@ -1,0 +1,3 @@
+### PR [#2288](https://github.com/danielmiessler/Fabric/pull/2288) by [pcbeingused333](https://github.com/pcbeingused333): fix(server): lock out a client after repeated wrong API keys
+
+- Answer 429 with a Retry-After header to a client address that sends 10 wrong API keys within a minute, for a minute.
