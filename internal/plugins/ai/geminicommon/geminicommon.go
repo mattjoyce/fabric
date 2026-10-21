@@ -103,7 +103,8 @@ func BlockedError(response *genai.GenerateContentResponse) error {
 		}
 		switch candidate.FinishReason {
 		case genai.FinishReasonSafety, genai.FinishReasonRecitation, genai.FinishReasonBlocklist,
-			genai.FinishReasonProhibitedContent, genai.FinishReasonSPII, genai.FinishReasonImageSafety:
+			genai.FinishReasonProhibitedContent, genai.FinishReasonSPII, genai.FinishReasonImageSafety,
+			genai.FinishReasonImageProhibitedContent, genai.FinishReasonImageRecitation:
 			if candidate.FinishMessage != "" {
 				return fmt.Errorf("the response was stopped: %s (%s)", candidate.FinishReason, candidate.FinishMessage)
 			}

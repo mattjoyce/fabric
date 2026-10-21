@@ -57,6 +57,16 @@ func TestBlockedError(t *testing.T) {
 			"the response was stopped: SAFETY (unsafe)",
 		},
 		{
+			"stopped by prohibited image content",
+			&genai.GenerateContentResponse{Candidates: []*genai.Candidate{{FinishReason: genai.FinishReasonImageProhibitedContent}}},
+			"the response was stopped: IMAGE_PROHIBITED_CONTENT",
+		},
+		{
+			"stopped by image recitation",
+			&genai.GenerateContentResponse{Candidates: []*genai.Candidate{{FinishReason: genai.FinishReasonImageRecitation}}},
+			"the response was stopped: IMAGE_RECITATION",
+		},
+		{
 			"stopped by a blocklist",
 			&genai.GenerateContentResponse{Candidates: []*genai.Candidate{nil, {FinishReason: genai.FinishReasonBlocklist}}},
 			"the response was stopped: BLOCKLIST",
