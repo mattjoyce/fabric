@@ -113,6 +113,10 @@ func (o *Client) Send(ctx context.Context, msgs []*chat.ChatCompletionMessage, o
 		return "", err
 	}
 
+	if err = geminicommon.BlockedError(response); err != nil {
+		return "", err
+	}
+
 	ret = geminicommon.ExtractTextWithCitations(response)
 	return
 }

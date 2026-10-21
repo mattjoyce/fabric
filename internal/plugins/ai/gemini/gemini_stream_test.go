@@ -72,3 +72,44 @@ func TestSendStreamNormalAndMaxTokensStopsAreNotErrors(t *testing.T) {
 		})
 	}
 }
+
+func sendGemini(t *testing.T, body string) (string, error) {
+	t.Helper()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, body)
+	}))
+	defer server.Close()
+	t.Setenv("GOOGLE_GEMINI_BASE_URL", server.URL)
+
+	client := NewClient()
+	client.ApiKey.Value = "test-key"
+
+	return client.Send(
+		context.Background(),
+		[]*chat.ChatCompletionMessage{{Role: chat.ChatMessageRoleUser, Content: "hi"}},
+		&domain.ChatOptions{Model: "gemini-3.8-flash"},
+	)
+}
+
+func TestSendReturnsErrorWhenThePromptIsBlocked(t *testing.T) {
+	_, err := sendGemini(t, `{"promptFeedback":{"blockReason":"PROHIBITED_CONTENT"}}`)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "PROHIBITED_CONTENT")
+}
+
+func TestSendReturnsErrorWhenTheAnswerIsStoppedBySafety(t *testing.T) {
+	_, err := sendGemini(t, `{"candidates":[{"finishReason":"SAFETY"}]}`)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "SAFETY")
+}
+
+func TestSendReturnsTheAnswerOfANormalResponse(t *testing.T) {
+	answer, err := sendGemini(t, `{"candidates":[{"content":{"role":"model","parts":[{"text":"Hello"}]},"finishReason":"STOP"}]}`)
+
+	require.NoError(t, err)
+	require.Equal(t, "Hello", answer)
+}
