@@ -188,12 +188,16 @@ func (o *Client) sendStreamResponses(
 	req := o.buildResponseParams(msgs, opts)
 	stream := o.ApiClient.Responses.NewStreaming(ctx, req, o.requestOptions(opts.SessionID)...)
 	var sources []string
+	var failure error
 	for stream.Next() {
 		event := stream.Current()
 		switch event.Type {
 		case string(constant.ResponseCompleted("").Default()):
 			completed := event.AsResponseCompleted()
 			sources = searchResultSources(&completed.Response)
+		case string(constant.ResponseFailed("").Default()):
+			// A failed response ends the stream without an SDK error.
+			failure = responseFailedError(event.AsResponseFailed().Response.Error)
 		case string(constant.ResponseOutputTextDelta("").Default()):
 			channel <- domain.StreamUpdate{
 				Type:    domain.StreamTypeContent,
@@ -203,6 +207,9 @@ func (o *Client) sendStreamResponses(
 			// The done event repeats the text that the delta events already sent.
 			continue
 		}
+	}
+	if stream.Err() == nil && failure != nil {
+		return failure
 	}
 	if stream.Err() == nil {
 		content := "\n"
@@ -215,6 +222,18 @@ func (o *Client) sendStreamResponses(
 		}
 	}
 	return stream.Err()
+}
+
+// responseFailedError turns the error of a failed Responses API response into a Go error.
+func responseFailedError(respErr responses.ResponseError) error {
+	message := respErr.Message
+	if message == "" {
+		message = "the response failed"
+	}
+	if respErr.Code != "" {
+		return fmt.Errorf("%s (%s)", message, respErr.Code)
+	}
+	return errors.New(message)
 }
 
 func (o *Client) Send(ctx context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions) (ret string, err error) {
