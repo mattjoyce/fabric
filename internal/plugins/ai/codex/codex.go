@@ -297,6 +297,7 @@ func (c *Client) SendStream(
 	req := c.buildCodexResponseParams(msgs, opts)
 	stream := c.ApiClient.Responses.NewStreaming(ctx, req)
 	defer stream.Close()
+	var failure error
 	for stream.Next() {
 		event := stream.Current()
 		switch event.Type {
@@ -309,7 +310,27 @@ func (c *Client) SendStream(
 			}
 		case string(constant.ResponseOutputTextDone("").Default()):
 			continue
+		case string(constant.ResponseCompleted("").Default()):
+			if usage := event.AsResponseCompleted().Response.Usage; usage.TotalTokens > 0 {
+				if err := sendStreamUpdate(ctx, channel, domain.StreamUpdate{
+					Type: domain.StreamTypeUsage,
+					Usage: &domain.UsageMetadata{
+						InputTokens:  int(usage.InputTokens),
+						OutputTokens: int(usage.OutputTokens),
+						TotalTokens:  int(usage.TotalTokens),
+					},
+				}); err != nil {
+					return err
+				}
+			}
+		case string(constant.ResponseFailed("").Default()):
+			// A failed response ends the stream without an SDK error.
+			failure = responseFailedError(event.AsResponseFailed().Response.Error)
 		}
+	}
+
+	if stream.Err() == nil && failure != nil {
+		return failure
 	}
 
 	if stream.Err() == nil {
@@ -322,6 +343,18 @@ func (c *Client) SendStream(
 	}
 
 	return c.mapRequestError(stream.Err())
+}
+
+// responseFailedError turns the error of a failed Responses API response into a Go error.
+func responseFailedError(respErr responses.ResponseError) error {
+	message := respErr.Message
+	if message == "" {
+		message = "the response failed"
+	}
+	if respErr.Code != "" {
+		return fmt.Errorf("%s (%s)", message, respErr.Code)
+	}
+	return errors.New(message)
 }
 
 func sendStreamUpdate(ctx context.Context, channel chan domain.StreamUpdate, update domain.StreamUpdate) error {
