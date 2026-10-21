@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/danielmiessler/fabric/internal/chat"
 	"github.com/danielmiessler/fabric/internal/domain"
@@ -89,4 +90,60 @@ func TestListModelsDoesNotSendBearerForWhitespaceOnlyKey(t *testing.T) {
 	models, err := client.ListModels(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, []string{"model-1"}, models)
+}
+
+func TestSendStreamClosesChannelOnHTTPError(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client := NewClient()
+	client.ApiUrl.Value = server.URL
+	client.HttpClient = server.Client()
+
+	ch := make(chan domain.StreamUpdate)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- client.SendStream(context.Background(), []*chat.ChatCompletionMessage{{Role: "user", Content: "hi"}}, &domain.ChatOptions{Model: "m"}, ch)
+	}()
+
+	require.Error(t, <-errCh)
+
+	// chatter.go ranges over the channel until the vendor closes it.
+	select {
+	case _, ok := <-ch:
+		require.False(t, ok, "unexpected update")
+	case <-time.After(time.Second):
+		t.Fatal("channel was not closed after a non-200 response")
+	}
+}
+
+func TestSendStreamClosesChannelWhenServerIsDown(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	url := server.URL
+	server.Close()
+
+	client := NewClient()
+	client.ApiUrl.Value = url
+	client.HttpClient = &http.Client{}
+
+	ch := make(chan domain.StreamUpdate)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- client.SendStream(context.Background(), []*chat.ChatCompletionMessage{{Role: "user", Content: "hi"}}, &domain.ChatOptions{Model: "m"}, ch)
+	}()
+
+	require.Error(t, <-errCh)
+
+	select {
+	case _, ok := <-ch:
+		require.False(t, ok, "unexpected update")
+	case <-time.After(time.Second):
+		t.Fatal("channel was not closed after a failed request")
+	}
 }
