@@ -80,9 +80,6 @@ func ExtractText(response *genai.GenerateContentResponse) string {
 // plus the thinking tokens, which Gemini reports separately but bills as output
 // and counts in TotalTokenCount.
 func OutputTokenCount(usage *genai.GenerateContentResponseUsageMetadata) int {
-	if usage == nil {
-		return 0
-	}
 	return int(usage.CandidatesTokenCount) + int(usage.ThoughtsTokenCount)
 }
 

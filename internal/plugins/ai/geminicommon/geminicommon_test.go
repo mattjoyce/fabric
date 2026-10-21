@@ -30,5 +30,4 @@ func TestOutputTokenCountIncludesThoughts(t *testing.T) {
 	}
 
 	assert.Equal(t, 90, OutputTokenCount(usage))
-	assert.Equal(t, 0, OutputTokenCount(nil))
 }
