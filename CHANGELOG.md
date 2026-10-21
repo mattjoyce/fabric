@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.4.535 (2026-10-21)
+
+### PR [#2284](https://github.com/danielmiessler/Fabric/pull/2284) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(gemini): keep thought summaries out of the output and count thinking tokens
+
+- Leave Gemini and Vertex AI thought summaries out of the response text and report thinking tokens as output tokens.
+
 ## v1.4.534 (2026-10-21)
 
 ### PR [#2282](https://github.com/danielmiessler/Fabric/pull/2282) by [pcbeingused333](https://github.com/pcbeingused333): fix(openai): replace the image models OpenAI retires on 2026-10-23
