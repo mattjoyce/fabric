@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.4.537 (2026-10-21)
+
+### PR [#2291](https://github.com/danielmiessler/Fabric/pull/2291) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(lmstudio): close the stream channel on every error path
+
+- Fixed LM Studio streaming so the stream channel is closed on every error path, preventing hangs and leaked goroutines.
+- Consolidated the LM Studio stream error channel closure tests, combining HTTP failure and unavailable server scenarios into subtests.
+- Updated tests to call `SendStream` directly and verify immediate channel closure, removing redundant goroutines, error channels, and timeout dependencies.
+
 ## v1.4.536 (2026-10-21)
 
 ### PR [#2289](https://github.com/danielmiessler/Fabric/pull/2289) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(plugins): refuse plaintext http to remote hosts for OpenAI, Exolab and Codex
