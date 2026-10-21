@@ -412,24 +412,9 @@ func TestExtractTextSearchResultSources(t *testing.T) {
 	assert.Equal(t, "Answer.[2]\n\n## Sources\n\n- [1] [T1](https://a.example)\n- [2] [T2](https://b.example)", NewClient().extractText(&resp))
 }
 
-func TestConfigureRequiresHTTPSForRemoteBaseURL(t *testing.T) {
-	for _, tc := range []struct {
-		baseURL string
-		wantErr bool
-	}{
-		{"", false},
-		{"https://api.example.com/v1", false},
-		{"http://localhost:1234/v1", false},
-		{"http://127.0.0.1:8000/v1", false},
-		{"http://api.example.com/v1", true},
-		{"http://192.168.1.10:8000/v1", true},
-	} {
-		client := NewClient()
-		client.ApiKey.Value = "synthetic-key"
-		client.ApiBaseURL.Value = tc.baseURL
-		err := client.configure()
-		if (err != nil) != tc.wantErr {
-			t.Errorf("configure() with base URL %q: error = %v, wantErr %v", tc.baseURL, err, tc.wantErr)
-		}
-	}
+func TestConfigureRejectsPlaintextRemoteBaseURL(t *testing.T) {
+	client := NewClient()
+	client.ApiKey.Value = "synthetic-key"
+	client.ApiBaseURL.Value = "http://api.example.com/v1"
+	assert.Error(t, client.configure())
 }

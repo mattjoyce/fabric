@@ -3,11 +3,11 @@ package plugins
 import (
 	"errors"
 	"fmt"
-	"net"
 	"net/url"
 	"strings"
 
 	"github.com/danielmiessler/fabric/internal/i18n"
+	"github.com/danielmiessler/fabric/internal/util"
 )
 
 // RequireSecureBaseURL checks the base URL of a vendor that gets an API key
@@ -21,24 +21,15 @@ func RequireSecureBaseURL(rawURL string) error {
 	}
 	parsed, err := url.Parse(rawURL)
 	if err != nil || parsed.Host == "" {
-		return errors.New(i18n.T("plugins_error_invalid_base_url"))
+		return errors.New(i18n.T("plugin_invalid_base_url"))
 	}
-	switch strings.ToLower(parsed.Scheme) {
+	switch parsed.Scheme {
 	case "https":
 		return nil
 	case "http":
-		if isLoopbackHost(parsed.Hostname()) {
+		if util.IsLoopbackHost(parsed.Hostname()) {
 			return nil
 		}
 	}
-	return fmt.Errorf(i18n.T("plugins_error_insecure_base_url"), parsed.Scheme+"://"+parsed.Host)
-}
-
-func isLoopbackHost(host string) bool {
-	host = strings.ToLower(strings.TrimSuffix(host, "."))
-	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
-		return true
-	}
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
+	return fmt.Errorf(i18n.T("plugin_insecure_base_url"), parsed.Scheme+"://"+parsed.Host)
 }
