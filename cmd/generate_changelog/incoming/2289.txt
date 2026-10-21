@@ -1,4 +1,4 @@
-### PR [#2289](https://github.com/danielmiessler/Fabric/pull/2289) by [pcbeingused333](https://github.com/pcbeingused333): fix(plugins): refuse plaintext http to remote hosts for OpenAI, Exolab and Codex
+### PR [#2289](https://github.com/danielmiessler/Fabric/pull/2289) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(plugins): refuse plaintext http to remote hosts for OpenAI, Exolab and Codex
 
 - Fixed a security issue where plaintext HTTP connections to remote hosts could expose API keys and prompts; OpenAI-compatible clients, Exolab, and Codex now require HTTPS.
 - Allowed HTTP only for localhost, loopback addresses, and `*.localhost`, leaving all built-in defaults unchanged.
