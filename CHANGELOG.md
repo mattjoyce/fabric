@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.4.536 (2026-10-21)
+
+### PR [#2289](https://github.com/danielmiessler/Fabric/pull/2289) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(plugins): refuse plaintext http to remote hosts for OpenAI, Exolab and Codex
+
+- Fixed a security issue where plaintext HTTP connections to remote hosts could expose API keys and prompts; OpenAI-compatible clients, Exolab, and Codex now require HTTPS.
+- Allowed HTTP only for localhost, loopback addresses, and `*.localhost`, leaving all built-in defaults unchanged.
+- Tightened server bind authentication by requiring API keys for binds using localhost subdomains.
+- Consolidated Codex authentication and API endpoint security checks, with shared loopback detection across endpoint validation and middleware.
+- Localized base URL validation errors across all supported locales.
+- If you use an `http://` base URL to a host other than localhost, change it to `https://` or use a local tunnel. Otherwise the vendor is not loaded. Run with `--debug=3` to see the reason.
+
 ## v1.4.535 (2026-10-21)
 
 ### PR [#2284](https://github.com/danielmiessler/Fabric/pull/2284) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(gemini): keep thought summaries out of the output and count thinking tokens
