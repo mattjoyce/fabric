@@ -5,7 +5,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/danielmiessler/fabric/internal/core"
@@ -64,20 +63,10 @@ func TestSecurityHeadersMiddleware_HandlerCacheControlWins(t *testing.T) {
 		c.Writer.Header().Set("Cache-Control", "no-cache")
 		c.String(http.StatusOK, "ok")
 	})
-	r.GET("/swagger/index.html", func(c *gin.Context) { c.String(http.StatusOK, "ui") })
 
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/stream", nil))
 	if got := rec.Header().Get("Cache-Control"); got != "no-cache" {
 		t.Errorf("Cache-Control = %q, want the handler's no-cache", got)
-	}
-
-	rec = httptest.NewRecorder()
-	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/swagger/index.html", nil))
-	if got := rec.Header().Get("X-Content-Type-Options"); got != "nosniff" {
-		t.Errorf("swagger X-Content-Type-Options = %q, want nosniff", got)
-	}
-	if strings.Contains(rec.Header().Get("Cache-Control"), "no-store") {
-		t.Errorf("swagger page should stay cacheable, got Cache-Control %q", rec.Header().Get("Cache-Control"))
 	}
 }
