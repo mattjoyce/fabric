@@ -1,3 +1,6 @@
 ### PR [#2283](https://github.com/danielmiessler/Fabric/pull/2283) by [pcbeingused333](https://github.com/pcbeingused333): fix(server): set nosniff and no-store on every API response
 
-- Add a middleware that sets X-Content-Type-Options and Cache-Control on all REST responses, including the rejections of the API key, loopback and body-size checks.
+- Added a middleware, installed first in `newSecuredEngine`, that sets `X-Content-Type-Options: nosniff` and `Cache-Control: no-store` on every API response, including 401, 403, and 413 replies from later checks.
+- Preserved handler-specific `Cache-Control` overrides, so responses such as the chat stream keep their own caching behavior.
+- Applied the default no-store caching policy to all routes, including the Swagger UI pages.
+- Removed obsolete Swagger caching assertions and unused imports.
