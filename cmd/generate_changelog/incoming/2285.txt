@@ -1,3 +1,0 @@
-### PR [#2285](https://github.com/danielmiessler/Fabric/pull/2285) by [pcbeingused333](https://github.com/pcbeingused333): fix(bedrock): emit usage after MessageStop and return mid-stream errors
-
-- Report the token usage of a Bedrock stream and return the error that ends it instead of a cut-off answer.

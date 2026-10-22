@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.4.540 (2026-10-21)
+
+### PR [#2285](https://github.com/danielmiessler/Fabric/pull/2285) by [pcbeingused333](https://github.com/pcbeingused333): fix(bedrock): emit usage after MessageStop and return mid-stream errors
+
+- Report the token usage of a Bedrock stream and return the error that ends it instead of a cut-off answer.
+
 ## v1.4.539 (2026-10-22)
 
 ### PR [#2283](https://github.com/danielmiessler/Fabric/pull/2283) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(server): set nosniff and no-store on every API response
