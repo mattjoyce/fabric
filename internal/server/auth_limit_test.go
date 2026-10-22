@@ -40,7 +40,7 @@ func TestAPIKeyMiddlewareLocksOutAClientAfterRepeatedWrongKeys(t *testing.T) {
 	clock := &fakeClock{now: time.Unix(1_700_000_000, 0)}
 	r := limitedRouter(clock)
 
-	for i := 0; i < maxAuthFailures; i++ {
+	for i := range maxAuthFailures {
 		if w := send(r, "203.0.113.5", "guess"); w.Code != http.StatusUnauthorized {
 			t.Fatalf("wrong key %d: got %d, want 401", i+1, w.Code)
 		}
@@ -71,8 +71,8 @@ func TestAPIKeyMiddlewareForgetsOldFailures(t *testing.T) {
 	clock := &fakeClock{now: time.Unix(1_700_000_000, 0)}
 	r := limitedRouter(clock)
 
-	for round := 0; round < 3; round++ {
-		for i := 0; i < maxAuthFailures-1; i++ {
+	for range 3 {
+		for range maxAuthFailures - 1 {
 			send(r, "203.0.113.5", "guess")
 		}
 		clock.Advance(authFailureWindow + time.Second)
@@ -87,7 +87,7 @@ func TestAPIKeyMiddlewareMissingKeyDoesNotCountAsAGuess(t *testing.T) {
 	clock := &fakeClock{now: time.Unix(1_700_000_000, 0)}
 	r := limitedRouter(clock)
 
-	for i := 0; i < maxAuthFailures*2; i++ {
+	for i := range maxAuthFailures * 2 {
 		if w := send(r, "203.0.113.5", ""); w.Code != http.StatusUnauthorized {
 			t.Fatalf("missing key %d: got %d, want 401", i+1, w.Code)
 		}
@@ -102,7 +102,7 @@ func TestAuthFailureLimiterTableStaysBounded(t *testing.T) {
 	limiter := newAuthFailureLimiter()
 	limiter.now = clock.Now
 
-	for i := 0; i < maxTrackedClients+500; i++ {
+	for i := range maxTrackedClients + 500 {
 		limiter.fail("client-" + time.Duration(i).String())
 	}
 	if got := len(limiter.clients); got > maxTrackedClients {
