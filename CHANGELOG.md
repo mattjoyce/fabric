@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.4.539 (2026-10-22)
+
+### PR [#2283](https://github.com/danielmiessler/Fabric/pull/2283) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(server): set nosniff and no-store on every API response
+
+- Added a middleware, installed first in `newSecuredEngine`, that sets `X-Content-Type-Options: nosniff` and `Cache-Control: no-store` on every API response, including 401, 403, and 413 replies from later checks.
+- Preserved handler-specific `Cache-Control` overrides, so responses such as the chat stream keep their own caching behavior.
+- Applied the default no-store caching policy to all routes, including the Swagger UI pages.
+- Removed obsolete Swagger caching assertions and unused imports.
+
 ## v1.4.538 (2026-10-21)
 
 ### PR [#2294](https://github.com/danielmiessler/Fabric/pull/2294) by [ksylvan](https://github.com/ksylvan): chore: update Go SDK dependencies and frontend build tooling
