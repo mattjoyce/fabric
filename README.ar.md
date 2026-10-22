@@ -308,6 +308,7 @@ go install github.com/danielmiessler/fabric/cmd/fabric@latest
 - Eden AI
 - GrokAI
 - Groq
+- Hostinger Router
 - Langdock
 - LiteLLM
 - MiniMax
