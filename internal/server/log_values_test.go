@@ -59,7 +59,7 @@ func TestHandleChat_LogsLanguageWithoutLineBreaks(t *testing.T) {
 	}
 	router.ServeHTTP(resp, req)
 
-	for _, line := range strings.Split(strings.TrimRight(logged.String(), "\n"), "\n") {
+	for line := range strings.SplitSeq(strings.TrimRight(logged.String(), "\n"), "\n") {
 		if strings.Contains(line, "FORGED") && !strings.Contains(line, "Received chat request") {
 			t.Fatalf("the language started a log line of its own: %q", line)
 		}
@@ -90,7 +90,7 @@ func TestOllamaChat_LogsUpstreamErrorBodyOnOneLine(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(httptest.NewRecorder(), req)
 
-	for _, line := range strings.Split(strings.TrimRight(logged.String(), "\n"), "\n") {
+	for line := range strings.SplitSeq(strings.TrimRight(logged.String(), "\n"), "\n") {
 		if strings.Contains(line, "FORGED") && !strings.Contains(line, "first") {
 			t.Fatalf("the upstream body started a log line of its own: %q", line)
 		}
