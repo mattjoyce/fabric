@@ -374,6 +374,7 @@ Fabric supports a wide range of AI providers:
 - Eden AI
 - GrokAI
 - Groq
+- Hostinger Router
 - Langdock
 - LiteLLM
 - MiniMax

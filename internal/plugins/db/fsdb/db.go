@@ -78,6 +78,15 @@ func (o *Db) Configure() (err error) {
 		return
 	}
 
+	// Sessions and contexts hold private text, also those that earlier
+	// versions saved with 0644.
+	if err = o.Sessions.MakePrivate(); err != nil {
+		return
+	}
+	if err = o.Contexts.MakePrivate(); err != nil {
+		return
+	}
+
 	return
 }
 
