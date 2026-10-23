@@ -13,6 +13,7 @@ import (
 	"github.com/danielmiessler/fabric/internal/domain"
 	"github.com/danielmiessler/fabric/internal/i18n"
 	debuglog "github.com/danielmiessler/fabric/internal/log"
+	anthropicplugin "github.com/danielmiessler/fabric/internal/plugins/ai/anthropic"
 )
 
 const bedrockAnthropicVersion = "bedrock-2023-05-31"
@@ -30,7 +31,6 @@ func NewBedrockBackend(subscriptionKey string) *BedrockBackend {
 // ListModels returns the list of available Bedrock inference profiles
 func (b *BedrockBackend) ListModels(_ context.Context) ([]string, error) {
 	return []string{
-		"us.anthropic.claude-3-haiku-20240307-v1:0",
 		"us.anthropic.claude-3-opus-20240229-v1:0",
 		"us.anthropic.claude-3-sonnet-20240229-v1:0",
 		"us.anthropic.claude-3-5-haiku-20241022-v1:0",
@@ -42,8 +42,8 @@ func (b *BedrockBackend) ListModels(_ context.Context) ([]string, error) {
 		"us.anthropic.claude-opus-4-1-20250805-v1:0",
 		"us.anthropic.claude-opus-4-5-20251101-v1:0",
 		"us.anthropic.claude-opus-4-6-v1:0",
-		"us.anthropic.claude-sonnet-4-20250514-v1:0",
 		"us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+		"us.anthropic.claude-sonnet-4-6",
 	}, nil
 }
 
@@ -96,12 +96,15 @@ func (b *BedrockBackend) PrepareRequest(msgs []*chat.ChatCompletionMessage, opts
 	if len(systemParts) > 0 {
 		body["system"] = strings.Join(systemParts, "\n\n")
 	}
-	// The Anthropic API accepts temperature or top_p, not both.
-	// Send top_p when it is not the default. Otherwise send temperature.
-	if opts.TopP != domain.DefaultTopP {
-		body["top_p"] = opts.TopP
-	} else {
-		body["temperature"] = opts.Temperature
+	// Some Claude models reject temperature and top_p. The Anthropic API accepts
+	// temperature or top_p, not both: send top_p when it is not the default,
+	// otherwise temperature.
+	if !anthropicplugin.ModelDisallowsSamplingParams(opts.Model) {
+		if opts.TopP != domain.DefaultTopP {
+			body["top_p"] = opts.TopP
+		} else {
+			body["temperature"] = opts.Temperature
+		}
 	}
 
 	return json.Marshal(body)

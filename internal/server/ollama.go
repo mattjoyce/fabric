@@ -384,7 +384,7 @@ func (f APIConvert) ollamaChat(c *gin.Context) {
 		if readErr != nil {
 			log.Printf(i18n.T("ollama_upstream_non_2xx_body_unreadable"), fabricRes.StatusCode, readErr)
 		} else {
-			log.Printf(i18n.T("ollama_upstream_non_2xx"), fabricRes.StatusCode, string(bodyBytes))
+			log.Printf(i18n.T("ollama_upstream_non_2xx"), fabricRes.StatusCode, quoteForLog(bodyBytes))
 		}
 
 		replyOllamaError(c, prompt, fabricRes.StatusCode, fmt.Sprintf(i18n.T("ollama_upstream_returned_status"), fabricRes.StatusCode))
@@ -563,4 +563,16 @@ func writeOllamaResponseStruct(c *gin.Context, response OllamaResponse) error {
 		flusher.Flush()
 	}
 	return nil
+}
+
+// maxLoggedBodyBytes is how much of an upstream error body goes to the log.
+const maxLoggedBodyBytes = 512
+
+// quoteForLog quotes body and cuts it at maxLoggedBodyBytes, so a body with
+// line breaks cannot add log lines of its own.
+func quoteForLog(body []byte) string {
+	if len(body) > maxLoggedBodyBytes {
+		return strconv.Quote(string(body[:maxLoggedBodyBytes])) + "..."
+	}
+	return strconv.Quote(string(body))
 }

@@ -113,6 +113,10 @@ func (o *Client) Send(ctx context.Context, msgs []*chat.ChatCompletionMessage, o
 		return "", err
 	}
 
+	if err = geminicommon.BlockedError(response); err != nil {
+		return "", err
+	}
+
 	ret = geminicommon.ExtractTextWithCitations(response)
 	return
 }
@@ -160,10 +164,14 @@ func (o *Client) SendStream(_ context.Context, msgs []*chat.ChatCompletionMessag
 				Type: domain.StreamTypeUsage,
 				Usage: &domain.UsageMetadata{
 					InputTokens:  int(response.UsageMetadata.PromptTokenCount),
-					OutputTokens: int(response.UsageMetadata.CandidatesTokenCount),
+					OutputTokens: geminicommon.OutputTokenCount(response.UsageMetadata),
 					TotalTokens:  int(response.UsageMetadata.TotalTokenCount),
 				},
 			}
+		}
+
+		if blockedErr := geminicommon.BlockedError(response); blockedErr != nil {
+			return blockedErr
 		}
 	}
 
