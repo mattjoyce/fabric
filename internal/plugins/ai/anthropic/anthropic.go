@@ -78,6 +78,22 @@ var adaptiveThinkingPrefixes = []string{
 	"claude-mythos-5",
 }
 
+// These models reject `thinking.type=disabled`, so thinking can't be turned
+// off. Claude Sonnet 5.5's lowest setting is `thinking.type=between_tools`.
+// The others get adaptive thinking at the lowest effort.
+var thinkingDisabledRejectedPrefixes = []string{
+	"claude-opus-5-5",
+	"claude-sonnet-5-5",
+	"claude-fable-5",
+	"claude-mythos",
+}
+
+func modelRejectsDisabledThinking(model string) bool {
+	return slices.ContainsFunc(thinkingDisabledRejectedPrefixes, func(prefix string) bool {
+		return strings.HasPrefix(model, prefix)
+	})
+}
+
 func modelUsesAdaptiveThinking(model string) bool {
 	return slices.ContainsFunc(adaptiveThinkingPrefixes, func(prefix string) bool {
 		return strings.HasPrefix(model, prefix)
@@ -226,6 +242,13 @@ func parseThinking(level domain.ThinkingLevel, model string) (
 
 	switch domain.ThinkingLevel(lower) {
 	case domain.ThinkingOff:
+		if modelRejectsDisabledThinking(model) {
+			if strings.HasPrefix(model, "claude-sonnet-5-5") {
+				betweenTools := anthropic.NewThinkingConfigBetweenToolsParam()
+				return anthropic.ThinkingConfigParamUnion{OfBetweenTools: &betweenTools}, "", true
+			}
+			return adaptiveThinking, anthropic.OutputConfigEffortLow, true
+		}
 		disabled := anthropic.NewThinkingConfigDisabledParam()
 		return anthropic.ThinkingConfigParamUnion{OfDisabled: &disabled}, "", true
 	case domain.ThinkingLow, domain.ThinkingMedium, domain.ThinkingHigh:
