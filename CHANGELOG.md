@@ -1,5 +1,38 @@
 # Changelog
 
+## v1.4.541 (2026-10-22)
+
+### PR [#2286](https://github.com/danielmiessler/Fabric/pull/2286) by [pcbeingused333](https://github.com/pcbeingused333) and [ksyvan](https://github.com/ksyvan): fix(server): log request values quoted and upstream error bodies cut
+
+- Fixed log injection in the chat handler by logging the request language with `%q` instead of `%s`, preventing clients from forging log entries with line breaks.
+- Quoted and truncated upstream error response bodies in the Ollama chat handler to 512 bytes, so echoed prompts no longer land in the log in full (part of #2256, S05).
+- Refactored server log tests to use split iterators instead of slice-based string splitting, while preserving the checks that guard against forged log lines.
+
+## v1.4.540 (2026-10-21)
+
+### PR [#2285](https://github.com/danielmiessler/Fabric/pull/2285) by [pcbeingused333](https://github.com/pcbeingused333): fix(bedrock): emit usage after MessageStop and return mid-stream errors
+
+- Report the token usage of a Bedrock stream and return the error that ends it instead of a cut-off answer.
+
+## v1.4.539 (2026-10-22)
+
+### PR [#2283](https://github.com/danielmiessler/Fabric/pull/2283) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(server): set nosniff and no-store on every API response
+
+- Added a middleware, installed first in `newSecuredEngine`, that sets `X-Content-Type-Options: nosniff` and `Cache-Control: no-store` on every API response, including 401, 403, and 413 replies from later checks.
+- Preserved handler-specific `Cache-Control` overrides, so responses such as the chat stream keep their own caching behavior.
+- Applied the default no-store caching policy to all routes, including the Swagger UI pages.
+- Removed obsolete Swagger caching assertions and unused imports.
+
+## v1.4.538 (2026-10-21)
+
+### PR [#2294](https://github.com/danielmiessler/Fabric/pull/2294) by [ksylvan](https://github.com/ksylvan): chore: update Go SDK dependencies and frontend build tooling
+
+- Upgraded the Anthropic, OpenAI, and Ollama Go SDK dependencies.
+- Updated AWS Bedrock, runtime, eventstream, and Smithy dependencies.
+- Refreshed Google API, certificate proxy, and GAX dependencies.
+- Upgraded Vite to 8.3.5 and Rolldown to 1.2.14.
+- Updated PostCSS, Nanoid, OXC types, and platform bindings, and synchronized Go checksums with the npm and pnpm lockfiles.
+
 ## v1.4.537 (2026-10-21)
 
 ### PR [#2291](https://github.com/danielmiessler/Fabric/pull/2291) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(lmstudio): close the stream channel on every error path
