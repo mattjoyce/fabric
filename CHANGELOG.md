@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.4.551 (2026-10-23)
+
+### PR [#2308](https://github.com/danielmiessler/Fabric/pull/2308) by [ksylvan](https://github.com/ksylvan): fix: honor caller context in AI vendor plugins
+
+- Fixed caller context cancellation handling across all AI providers.
+- Propagated caller contexts through streaming requests for every AI provider.
+- Honored cancellation during model discovery and credential lookup.
+- Passed caller contexts to Abacus model catalog requests.
+- Added regression tests covering cancellation and deadline handling.
+
 ## v1.4.550 (2026-10-23)
 
 ### PR [#2299](https://github.com/danielmiessler/Fabric/pull/2299) by [ksylvan](https://github.com/ksylvan): fix: protect provider error details and bound response memory usage
