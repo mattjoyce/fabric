@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.4.546 (2026-10-23)
+
+### PR [#2288](https://github.com/danielmiessler/Fabric/pull/2288) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(server): lock out a client after repeated wrong API keys
+
+- Added rate limiting that locks out a client address for one minute after 10 invalid API keys within a minute, returning HTTP 429 with a `Retry-After` header for all subsequent requests, including those with a valid key.
+- Excluded requests with missing API keys from the failure count, since they are not treated as guesses.
+- Bounded the table of tracked clients to prevent unlimited memory growth.
+- Improved pruning of authentication failures by removing all unlocked clients while preserving active lockouts.
+- Simplified the authentication limit tests with directly controlled clock values and numeric client identifiers.
+
 ## v1.4.545 (2026-10-23)
 
 ### PR [#2287](https://github.com/danielmiessler/Fabric/pull/2287) by [pcbeingused333](https://github.com/pcbeingused333): fix(fsdb): make existing session and context folders and files private
