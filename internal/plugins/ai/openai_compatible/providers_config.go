@@ -248,6 +248,11 @@ var ProviderMap = map[string]ProviderConfig{
 		BaseURL:             "https://api.aimlapi.com/v1",
 		ImplementsResponses: false,
 	},
+	"AIStupidLevel": {
+		Name:                "AIStupidLevel",
+		BaseURL:             "https://aistupidlevel.info/v1",
+		ImplementsResponses: false,
+	},
 	"Aliyun DashScope": {
 		Name:                "Aliyun DashScope",
 		BaseURL:             "https://dashscope.aliyuncs.com/compatible-mode/v1",
