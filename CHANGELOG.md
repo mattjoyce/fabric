@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.4.548 (2026-10-23)
+
+### PR [#2293](https://github.com/danielmiessler/Fabric/pull/2293) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(codex): return the error of a failed Responses stream and report its usage
+
+- Fixed the Codex plugin so that errors from a failed Responses stream are returned to the caller and the associated usage is reported.
+- Returned response failure errors immediately during streaming instead of deferring their handling.
+- Included error codes in failure messages when they are available.
+- Removed the redundant error helper and its fallback message.
+- Added test coverage in `internal/plugins/ai/codex/codex_test.go`.
+
 ## v1.4.547 (2026-10-23)
 
 ### PR [#2296](https://github.com/danielmiessler/Fabric/pull/2296) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(gemini): return an error when a response is blocked or stopped by a safety filter
