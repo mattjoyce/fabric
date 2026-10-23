@@ -12,28 +12,36 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func streamGemini(t *testing.T, dataLines ...string) (updates []domain.StreamUpdate, err error) {
+var (
+	testMsgs = []*chat.ChatCompletionMessage{{Role: chat.ChatMessageRoleUser, Content: "hi"}}
+	testOpts = &domain.ChatOptions{Model: "gemini-3.8-flash"}
+)
+
+// newTestClient returns a client whose requests go to a test server that sends body.
+func newTestClient(t *testing.T, contentType, body string) *Client {
 	t.Helper()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/event-stream")
-		for _, line := range dataLines {
-			_, _ = fmt.Fprintf(w, "data: %s\n\n", line)
-		}
+		w.Header().Set("Content-Type", contentType)
+		_, _ = fmt.Fprint(w, body)
 	}))
-	defer server.Close()
+	t.Cleanup(server.Close)
 	t.Setenv("GOOGLE_GEMINI_BASE_URL", server.URL)
 
 	client := NewClient()
 	client.ApiKey.Value = "test-key"
+	return client
+}
 
+func streamGemini(t *testing.T, dataLines ...string) (updates []domain.StreamUpdate, err error) {
+	t.Helper()
+
+	body := ""
+	for _, line := range dataLines {
+		body += "data: " + line + "\n\n"
+	}
 	channel := make(chan domain.StreamUpdate, 16)
-	err = client.SendStream(
-		context.Background(),
-		[]*chat.ChatCompletionMessage{{Role: chat.ChatMessageRoleUser, Content: "hi"}},
-		&domain.ChatOptions{Model: "gemini-3.8-flash"},
-		channel,
-	)
+	err = newTestClient(t, "text/event-stream", body).SendStream(context.Background(), testMsgs, testOpts, channel)
 	for update := range channel {
 		updates = append(updates, update)
 	}
@@ -73,42 +81,17 @@ func TestSendStreamNormalAndMaxTokensStopsAreNotErrors(t *testing.T) {
 	}
 }
 
-func sendGemini(t *testing.T, body string) (string, error) {
-	t.Helper()
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = fmt.Fprint(w, body)
-	}))
-	defer server.Close()
-	t.Setenv("GOOGLE_GEMINI_BASE_URL", server.URL)
-
-	client := NewClient()
-	client.ApiKey.Value = "test-key"
-
-	return client.Send(
-		context.Background(),
-		[]*chat.ChatCompletionMessage{{Role: chat.ChatMessageRoleUser, Content: "hi"}},
-		&domain.ChatOptions{Model: "gemini-3.8-flash"},
-	)
-}
-
-func TestSendReturnsErrorWhenThePromptIsBlocked(t *testing.T) {
-	_, err := sendGemini(t, `{"promptFeedback":{"blockReason":"PROHIBITED_CONTENT"}}`)
-
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "PROHIBITED_CONTENT")
-}
-
 func TestSendReturnsErrorWhenTheAnswerIsStoppedBySafety(t *testing.T) {
-	_, err := sendGemini(t, `{"candidates":[{"finishReason":"SAFETY"}]}`)
+	_, err := newTestClient(t, "application/json", `{"candidates":[{"finishReason":"SAFETY"}]}`).
+		Send(context.Background(), testMsgs, testOpts)
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "SAFETY")
 }
 
 func TestSendReturnsTheAnswerOfANormalResponse(t *testing.T) {
-	answer, err := sendGemini(t, `{"candidates":[{"content":{"role":"model","parts":[{"text":"Hello"}]},"finishReason":"STOP"}]}`)
+	answer, err := newTestClient(t, "application/json", `{"candidates":[{"content":{"role":"model","parts":[{"text":"Hello"}]},"finishReason":"STOP"}]}`).
+		Send(context.Background(), testMsgs, testOpts)
 
 	require.NoError(t, err)
 	require.Equal(t, "Hello", answer)

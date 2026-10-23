@@ -77,13 +77,9 @@ func TestBlockedError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := BlockedError(tt.response)
 			if tt.wantErr == "" {
-				if err != nil {
-					t.Fatalf("expected no error, got %v", err)
-				}
-				return
-			}
-			if err == nil || err.Error() != tt.wantErr {
-				t.Fatalf("expected error %q, got %v", tt.wantErr, err)
+				assert.NoError(t, err)
+			} else {
+				assert.EqualError(t, err, tt.wantErr)
 			}
 		})
 	}
