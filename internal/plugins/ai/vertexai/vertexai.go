@@ -13,6 +13,7 @@ import (
 	"github.com/danielmiessler/fabric/internal/i18n"
 	debuglog "github.com/danielmiessler/fabric/internal/log"
 	"github.com/danielmiessler/fabric/internal/plugins"
+	anthropicplugin "github.com/danielmiessler/fabric/internal/plugins/ai/anthropic"
 	"github.com/danielmiessler/fabric/internal/plugins/ai/geminicommon"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -142,12 +143,7 @@ func (c *Client) sendClaude(ctx context.Context, msgs []*chat.ChatCompletionMess
 		Messages:  anthropicMessages,
 	}
 
-	// Some Claude models reject a request that sets both Temperature and TopP.
-	if opts.TopP != domain.DefaultTopP {
-		params.TopP = anthropic.Opt(opts.TopP)
-	} else {
-		params.Temperature = anthropic.Opt(opts.Temperature)
-	}
+	anthropicplugin.SetSamplingParams(&params, opts)
 
 	response, err := c.client.Messages.New(ctx, params)
 	if err != nil {
@@ -195,12 +191,7 @@ func (c *Client) sendStreamClaude(msgs []*chat.ChatCompletionMessage, opts *doma
 		Messages:  anthropicMessages,
 	}
 
-	// Some Claude models reject a request that sets both Temperature and TopP.
-	if opts.TopP != domain.DefaultTopP {
-		params.TopP = anthropic.Opt(opts.TopP)
-	} else {
-		params.Temperature = anthropic.Opt(opts.Temperature)
-	}
+	anthropicplugin.SetSamplingParams(&params, opts)
 
 	stream := c.client.Messages.NewStreaming(ctx, params)
 
@@ -361,6 +352,10 @@ func (c *Client) sendStreamGemini(msgs []*chat.ChatCompletionMessage, opts *doma
 					TotalTokens:  int(response.UsageMetadata.TotalTokenCount),
 				},
 			}
+		}
+
+		if blockedErr := geminicommon.BlockedError(response); blockedErr != nil {
+			return blockedErr
 		}
 	}
 

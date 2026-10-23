@@ -113,6 +113,10 @@ func (o *Client) Send(ctx context.Context, msgs []*chat.ChatCompletionMessage, o
 		return "", err
 	}
 
+	if err = geminicommon.BlockedError(response); err != nil {
+		return "", err
+	}
+
 	ret = geminicommon.ExtractTextWithCitations(response)
 	return
 }
@@ -164,6 +168,10 @@ func (o *Client) SendStream(_ context.Context, msgs []*chat.ChatCompletionMessag
 					TotalTokens:  int(response.UsageMetadata.TotalTokenCount),
 				},
 			}
+		}
+
+		if blockedErr := geminicommon.BlockedError(response); blockedErr != nil {
+			return blockedErr
 		}
 	}
 

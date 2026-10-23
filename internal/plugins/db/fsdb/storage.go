@@ -31,6 +31,41 @@ func (o *StorageEntity) Configure() (err error) {
 	return
 }
 
+// MakePrivate removes the group and other permission bits from the storage
+// folder and from the files in it. Folders and files that earlier versions
+// made with 0755 and 0644 would otherwise stay readable to other users, and
+// Save keeps the mode of an existing file. A symlink is left alone: its
+// target may be outside the folder. It does not widen any mode.
+func (o *StorageEntity) MakePrivate() (err error) {
+	if err = tightenMode(o.Dir); err != nil {
+		return
+	}
+	var entries []os.DirEntry
+	if entries, err = os.ReadDir(o.Dir); err != nil {
+		return
+	}
+	for _, entry := range entries {
+		if entry.Type()&os.ModeSymlink != 0 {
+			continue
+		}
+		if err = tightenMode(filepath.Join(o.Dir, entry.Name())); err != nil {
+			return
+		}
+	}
+	return
+}
+
+func tightenMode(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if perm := info.Mode().Perm(); perm&0077 != 0 {
+		return os.Chmod(path, perm&^0077)
+	}
+	return nil
+}
+
 // GetNames finds all patterns in the patterns directory and enters the id, name, and pattern into a slice of Entry structs. it returns these entries or an error
 func (o *StorageEntity) GetNames() (ret []string, err error) {
 	absDir, err := util.GetAbsolutePath(o.Dir)

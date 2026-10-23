@@ -225,3 +225,52 @@ func TestWriteFileAtomic_Errors(t *testing.T) {
 		t.Errorf("temporary files stay: %v", tmps)
 	}
 }
+
+// TestDb_ConfigureMakesExistingSessionsAndContextsPrivate checks that
+// Configure removes the group and other bits that earlier versions left on
+// session and context folders and files, and never widens a mode.
+func TestDb_ConfigureMakesExistingSessionsAndContextsPrivate(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows has no Unix file modes")
+	}
+	dir := t.TempDir()
+	db := NewDb(dir)
+	if err := os.WriteFile(db.EnvFilePath, []byte("KEY=VALUE\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"sessions", "contexts"} {
+		folder := filepath.Join(dir, name)
+		if err := os.Mkdir(folder, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(folder, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(folder, "old.json"), []byte("[]"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(filepath.Join(folder, "old.json"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(folder, "own.json"), []byte("[]"), 0400); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := db.Configure(); err != nil {
+		t.Fatalf("Configure() error = %v", err)
+	}
+
+	for _, name := range []string{"sessions", "contexts"} {
+		folder := filepath.Join(dir, name)
+		if got := filePerm(t, folder); got != 0o700 {
+			t.Errorf("%s folder mode: got %v, want 0700", name, got)
+		}
+		if got := filePerm(t, filepath.Join(folder, "old.json")); got != 0o600 {
+			t.Errorf("%s/old.json mode: got %v, want 0600", name, got)
+		}
+		if got := filePerm(t, filepath.Join(folder, "own.json")); got != 0o400 {
+			t.Errorf("%s/own.json mode: got %v, want 0400 (never widened)", name, got)
+		}
+	}
+}

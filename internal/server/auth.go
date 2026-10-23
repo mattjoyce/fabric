@@ -7,7 +7,10 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/danielmiessler/fabric/internal/i18n"
 	"github.com/gin-gonic/gin"
@@ -15,9 +18,85 @@ import (
 
 const APIKeyHeader = "X-API-Key"
 
-// minAPIKeyLength is the key length below which the server warns. The
-// server has no limit on wrong keys, so a short key is easy to guess.
+// minAPIKeyLength is the key length below which the server warns. A short
+// key is easy to guess even with the limit on wrong keys.
 const minAPIKeyLength = 16
+
+// A client that sends maxAuthFailures wrong keys within authFailureWindow
+// gets 429 for authLockout, for every request, also one with the right key.
+// The limit lets a person mistype a key a few times, and it keeps a script
+// from trying keys at network speed.
+const (
+	maxAuthFailures   = 10
+	authFailureWindow = time.Minute
+	authLockout       = time.Minute
+	// maxTrackedClients bounds the memory that the limiter uses.
+	maxTrackedClients = 10000
+)
+
+type authFailures struct {
+	count       int
+	windowStart time.Time
+	lockedUntil time.Time
+}
+
+// authFailureLimiter counts wrong keys per client address.
+type authFailureLimiter struct {
+	mu      sync.Mutex
+	now     func() time.Time
+	clients map[string]*authFailures
+}
+
+func newAuthFailureLimiter() *authFailureLimiter {
+	return &authFailureLimiter{now: time.Now, clients: make(map[string]*authFailures)}
+}
+
+// retryAfter returns how long a locked client must wait, or 0 when it may try.
+func (l *authFailureLimiter) retryAfter(client string) time.Duration {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if entry, ok := l.clients[client]; ok {
+		if wait := entry.lockedUntil.Sub(l.now()); wait > 0 {
+			return wait
+		}
+	}
+	return 0
+}
+
+// fail records a wrong key and returns how long the client is locked, or 0.
+func (l *authFailureLimiter) fail(client string) time.Duration {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	now := l.now()
+	entry, ok := l.clients[client]
+	if !ok {
+		if len(l.clients) >= maxTrackedClients {
+			l.prune(now)
+		}
+		entry = &authFailures{windowStart: now}
+		l.clients[client] = entry
+	}
+	if now.Sub(entry.windowStart) > authFailureWindow {
+		entry.count, entry.windowStart = 0, now
+	}
+	entry.count++
+	if entry.count >= maxAuthFailures {
+		entry.count, entry.windowStart = 0, now
+		entry.lockedUntil = now.Add(authLockout)
+		return authLockout
+	}
+	return 0
+}
+
+// prune drops each client that is not locked, so that a flood of addresses
+// cannot grow the table. Locked clients stay locked.
+func (l *authFailureLimiter) prune(now time.Time) {
+	for client, entry := range l.clients {
+		if !entry.lockedUntil.After(now) {
+			delete(l.clients, client)
+		}
+	}
+}
 
 // requireAPIKeyForBind rejects a non-loopback bind address that has no
 // API key. An empty or unspecified host binds each interface, and that
@@ -40,6 +119,10 @@ func requireAPIKeyForBind(address, apiKey string) error {
 // Swagger documentation endpoints (/swagger/*) are exempt from authentication
 // to allow users to browse and test the API documentation freely.
 func APIKeyMiddleware(apiKey string) gin.HandlerFunc {
+	return apiKeyMiddleware(apiKey, newAuthFailureLimiter())
+}
+
+func apiKeyMiddleware(apiKey string, limiter *authFailureLimiter) gin.HandlerFunc {
 	// Hash the configured key so the comparison avoids leaking its length through timing.
 	expectedKey := sha256.Sum256([]byte(apiKey))
 	return func(c *gin.Context) {
@@ -47,6 +130,13 @@ func APIKeyMiddleware(apiKey string) gin.HandlerFunc {
 		// This allows public access to API docs even when authentication is enabled
 		if strings.HasPrefix(c.Request.URL.Path, "/swagger/") {
 			c.Next()
+			return
+		}
+
+		client := c.ClientIP()
+		if wait := limiter.retryAfter(client); wait > 0 {
+			c.Header("Retry-After", strconv.Itoa(int(wait.Seconds())+1))
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "Too many wrong API keys"})
 			return
 		}
 
@@ -61,7 +151,10 @@ func APIKeyMiddleware(apiKey string) gin.HandlerFunc {
 		headerKey := sha256.Sum256([]byte(headerApiKey))
 		if subtle.ConstantTimeCompare(headerKey[:], expectedKey[:]) != 1 {
 			// An operator can find repeated guesses in this log.
-			slog.Warn("API key wrong", "client", c.ClientIP(), "path", c.Request.URL.Path)
+			slog.Warn("API key wrong", "client", client, "path", c.Request.URL.Path)
+			if wait := limiter.fail(client); wait > 0 {
+				slog.Warn("too many wrong API keys: client locked out", "client", client, "for", wait)
+			}
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Wrong API Key"})
 			return
 		}

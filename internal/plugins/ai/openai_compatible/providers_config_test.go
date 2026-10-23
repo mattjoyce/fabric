@@ -49,6 +49,11 @@ func TestCreateClient(t *testing.T) {
 			exists:   true,
 		},
 		{
+			name:     "Existing provider - Hostinger Router",
+			provider: "Hostinger Router",
+			exists:   true,
+		},
+		{
 			name:     "Existing provider - Infermatic",
 			provider: "Infermatic",
 			exists:   true,

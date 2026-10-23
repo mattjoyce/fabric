@@ -1,5 +1,97 @@
 # Changelog
 
+## v1.4.547 (2026-10-23)
+
+### PR [#2296](https://github.com/danielmiessler/Fabric/pull/2296) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(gemini): return an error when a response is blocked or stopped by a safety filter
+
+- Fixed Gemini streaming responses to return an error when a stream is blocked or stopped by a safety filter.
+- Fixed non-streaming Gemini responses to return an error when the response is blocked.
+- Treated image prohibited-content and image recitation stop reasons as blocked responses.
+
+## v1.4.546 (2026-10-23)
+
+### PR [#2288](https://github.com/danielmiessler/Fabric/pull/2288) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(server): lock out a client after repeated wrong API keys
+
+- Added rate limiting that locks out a client address for one minute after 10 invalid API keys within a minute, returning HTTP 429 with a `Retry-After` header for all subsequent requests, including those with a valid key.
+- Excluded requests with missing API keys from the failure count, since they are not treated as guesses.
+- Bounded the table of tracked clients to prevent unlimited memory growth.
+- Improved pruning of authentication failures by removing all unlocked clients while preserving active lockouts.
+- Simplified the authentication limit tests with directly controlled clock values and numeric client identifiers.
+
+## v1.4.545 (2026-10-23)
+
+### PR [#2287](https://github.com/danielmiessler/Fabric/pull/2287) by [pcbeingused333](https://github.com/pcbeingused333): fix(fsdb): make existing session and context folders and files private
+
+- Fixed session and context storage permissions so that configuration now strips group and other permission bits from the sessions and contexts folders, as well as the files within them.
+- Addressed a privacy issue in which histories saved by earlier versions with 0755 and 0644 modes remained readable by other users, since Save preserves the mode of an existing file.
+- Ensured permissions are never widened and that symlinks are left untouched during the update.
+
+## v1.4.544 (2026-10-23)
+
+### PR [#2295](https://github.com/danielmiessler/Fabric/pull/2295) by [ricardasbitinas-jpg](https://github.com/ricardasbitinas-jpg): feat(providers): add Hostinger Router as an OpenAI-compatible provider
+
+- Added Hostinger Router as an OpenAI-compatible provider with base URL `https://router.hostinger.com/v1`.
+- The API key is read from `HOSTINGER_ROUTER_API_KEY`.
+- Added a `TestCreateClient` case for the new provider.
+- Listed Hostinger Router in the English, Chinese and Arabic READMEs.
+
+## v1.4.543 (2026-10-23)
+
+### PR [#2297](https://github.com/danielmiessler/Fabric/pull/2297) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(claude): omit temperature and top_p for Claude models that reject them on Bedrock gateway and Vertex AI
+
+- Fixed Claude requests by omitting `temperature` and `top_p` for models that reject them on the Bedrock gateway and Vertex AI.
+- Centralized Claude sampling parameter logic so it is shared across the Anthropic and Vertex AI integrations.
+- Preserved per-model restrictions and the mutually exclusive handling of sampling parameters.
+- Moved sampling tests into the shared Anthropic package for consistent coverage.
+- Added the corresponding changelog entry for this change.
+
+## v1.4.542 (2026-10-23)
+
+### PR [#2298](https://github.com/danielmiessler/Fabric/pull/2298) by [pcbeingused333](https://github.com/pcbeingused333): fix: drop retired Bedrock and Vertex AI models from the Azure AI Gateway lists
+
+- Removed retired Bedrock and Vertex AI models from the Azure AI Gateway model lists.
+
+## v1.4.541 (2026-10-22)
+
+### PR [#2286](https://github.com/danielmiessler/Fabric/pull/2286) by [pcbeingused333](https://github.com/pcbeingused333) and [ksyvan](https://github.com/ksyvan): fix(server): log request values quoted and upstream error bodies cut
+
+- Fixed log injection in the chat handler by logging the request language with `%q` instead of `%s`, preventing clients from forging log entries with line breaks.
+- Quoted and truncated upstream error response bodies in the Ollama chat handler to 512 bytes, so echoed prompts no longer land in the log in full (part of #2256, S05).
+- Refactored server log tests to use split iterators instead of slice-based string splitting, while preserving the checks that guard against forged log lines.
+
+## v1.4.540 (2026-10-21)
+
+### PR [#2285](https://github.com/danielmiessler/Fabric/pull/2285) by [pcbeingused333](https://github.com/pcbeingused333): fix(bedrock): emit usage after MessageStop and return mid-stream errors
+
+- Report the token usage of a Bedrock stream and return the error that ends it instead of a cut-off answer.
+
+## v1.4.539 (2026-10-22)
+
+### PR [#2283](https://github.com/danielmiessler/Fabric/pull/2283) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(server): set nosniff and no-store on every API response
+
+- Added a middleware, installed first in `newSecuredEngine`, that sets `X-Content-Type-Options: nosniff` and `Cache-Control: no-store` on every API response, including 401, 403, and 413 replies from later checks.
+- Preserved handler-specific `Cache-Control` overrides, so responses such as the chat stream keep their own caching behavior.
+- Applied the default no-store caching policy to all routes, including the Swagger UI pages.
+- Removed obsolete Swagger caching assertions and unused imports.
+
+## v1.4.538 (2026-10-21)
+
+### PR [#2294](https://github.com/danielmiessler/Fabric/pull/2294) by [ksylvan](https://github.com/ksylvan): chore: update Go SDK dependencies and frontend build tooling
+
+- Upgraded the Anthropic, OpenAI, and Ollama Go SDK dependencies.
+- Updated AWS Bedrock, runtime, eventstream, and Smithy dependencies.
+- Refreshed Google API, certificate proxy, and GAX dependencies.
+- Upgraded Vite to 8.3.5 and Rolldown to 1.2.14.
+- Updated PostCSS, Nanoid, OXC types, and platform bindings, and synchronized Go checksums with the npm and pnpm lockfiles.
+
+## v1.4.537 (2026-10-21)
+
+### PR [#2291](https://github.com/danielmiessler/Fabric/pull/2291) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(lmstudio): close the stream channel on every error path
+
+- Fixed LM Studio streaming so the stream channel is closed on every error path, preventing hangs and leaked goroutines.
+- Consolidated the LM Studio stream error channel closure tests, combining HTTP failure and unavailable server scenarios into subtests.
+- Updated tests to call `SendStream` directly and verify immediate channel closure, removing redundant goroutines, error channels, and timeout dependencies.
+
 ## v1.4.536 (2026-10-21)
 
 ### PR [#2289](https://github.com/danielmiessler/Fabric/pull/2289) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(plugins): refuse plaintext http to remote hosts for OpenAI, Exolab and Codex

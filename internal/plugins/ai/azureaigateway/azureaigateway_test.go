@@ -65,6 +65,17 @@ func TestBedrockListModels(t *testing.T) {
 	if len(models) == 0 {
 		t.Fatal("ListModels() returned empty list")
 	}
+	// End-of-life on Amazon Bedrock in the US regions behind the us. profiles:
+	// https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle-legacy.html
+	retired := map[string]bool{
+		"us.anthropic.claude-3-haiku-20240307-v1:0":  true, // 2026-09-10
+		"us.anthropic.claude-sonnet-4-20250514-v1:0": true, // 2026-10-14
+	}
+	for _, m := range models {
+		if retired[m] {
+			t.Errorf("ListModels() returns %q, which Bedrock has retired", m)
+		}
+	}
 }
 
 func TestBedrockPrepareRequestSystemMessages(t *testing.T) {
@@ -333,6 +344,20 @@ func TestVertexAIListModels(t *testing.T) {
 	}
 	if len(models) == 0 {
 		t.Fatal("ListModels() returned empty list")
+	}
+	// Retired on Vertex AI, see
+	// https://docs.cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions
+	retired := map[string]bool{
+		"gemini-2.5-pro":        true, // 2026-10-20
+		"gemini-2.5-flash":      true, // 2026-10-20
+		"gemini-2.5-flash-lite": true, // 2026-10-20
+		"gemini-2.0-flash":      true, // 2026-06-01
+		"gemini-2.0-flash-lite": true, // 2026-06-01
+	}
+	for _, m := range models {
+		if retired[m] {
+			t.Errorf("ListModels() returns %q, which Vertex AI has retired", m)
+		}
 	}
 }
 
