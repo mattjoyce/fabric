@@ -299,6 +299,11 @@ var ProviderMap = map[string]ProviderConfig{
 		BaseURL:             "https://futurmix.ai/v1",
 		ImplementsResponses: false,
 	},
+	"Hostinger Router": {
+		Name:                "Hostinger Router",
+		BaseURL:             "https://router.hostinger.com/v1",
+		ImplementsResponses: false,
+	},
 	"Infermatic": {
 		Name:                "Infermatic",
 		BaseURL:             "https://api.totalgpt.ai/v1",
