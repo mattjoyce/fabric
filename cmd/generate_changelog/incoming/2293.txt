@@ -1,4 +1,4 @@
-### PR [#2293](https://github.com/danielmiessler/Fabric/pull/2293) by [pcbeingused333](https://github.com/pcbeingused333): fix(codex): return the error of a failed Responses stream and report its usage
+### PR [#2293](https://github.com/danielmiessler/Fabric/pull/2293) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(codex): return the error of a failed Responses stream and report its usage
 
 - Fixed the Codex plugin so that errors from a failed Responses stream are returned to the caller and the associated usage is reported.
 - Returned response failure errors immediately during streaming instead of deferring their handling.
