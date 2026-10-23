@@ -23,7 +23,7 @@ func NewConfigHandler(r *gin.Engine, db *fsdb.Db) *ConfigHandler {
 	}
 
 	r.GET("/config", handler.GetConfig)
-	r.POST("/config/update", requireJSON, handler.UpdateConfig)
+	r.POST("/config/update", auditChange, requireJSON, handler.UpdateConfig)
 
 	return handler
 }

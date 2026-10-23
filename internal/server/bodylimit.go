@@ -14,6 +14,10 @@ import (
 // attached documents.
 const MaxRequestBodyBytes = 50 << 20 // 50 MiB
 
+// MaxResponseBytes is the maximum size of a model response that the Ollama
+// handler keeps in memory for a request with stream off.
+var MaxResponseBytes = 50 << 20 // 50 MiB
+
 // MaxBodyBytesMiddleware stops a request body at limit bytes. When
 // Content-Length is more than limit, it answers 413 before the handler
 // runs. The middleware reads a body with no length (chunked) before the

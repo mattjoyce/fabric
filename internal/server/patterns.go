@@ -39,12 +39,12 @@ func NewPatternsHandler(r *gin.Engine, patterns *fsdb.PatternsEntity) (ret *Patt
 	ret = &PatternsHandler{StorageHandler: storageHandler, patterns: patterns}
 
 	// Register routes manually - use custom Get for patterns, others from StorageHandler
-	r.GET("/patterns/:name", ret.Get)                       // Custom method with variables support
-	r.GET("/patterns/names", ret.GetNames)                  // From StorageHandler
-	r.DELETE("/patterns/:name", ret.Delete)                 // From StorageHandler
-	r.GET("/patterns/exists/:name", ret.Exists)             // From StorageHandler
-	r.PUT("/patterns/rename/:oldName/:newName", ret.Rename) // From StorageHandler
-	r.POST("/patterns/:name", ret.Save)                     // From StorageHandler
+	r.GET("/patterns/:name", ret.Get)                                    // Custom method with variables support
+	r.GET("/patterns/names", ret.GetNames)                               // From StorageHandler
+	r.DELETE("/patterns/:name", auditChange, ret.Delete)                 // From StorageHandler
+	r.GET("/patterns/exists/:name", ret.Exists)                          // From StorageHandler
+	r.PUT("/patterns/rename/:oldName/:newName", auditChange, ret.Rename) // From StorageHandler
+	r.POST("/patterns/:name", auditChange, ret.Save)                     // From StorageHandler
 	// Add POST route for patterns with variables in request body
 	r.POST("/patterns/:name/apply", requireJSON, ret.ApplyPattern)
 	return

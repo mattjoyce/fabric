@@ -162,3 +162,12 @@ func apiKeyMiddleware(apiKey string, limiter *authFailureLimiter) gin.HandlerFun
 		c.Next()
 	}
 }
+
+// auditChange writes a structured log event after a request that changes a
+// stored object or the configuration. The event has no body and no
+// credentials. With the auth failure events above, it is the audit log.
+func auditChange(c *gin.Context) {
+	c.Next()
+	slog.Info("audit: change", "method", c.Request.Method, "path", c.Request.URL.Path,
+		"status", c.Writer.Status(), "client", c.ClientIP())
+}

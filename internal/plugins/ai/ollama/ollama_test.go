@@ -17,7 +17,6 @@ import (
 	"github.com/danielmiessler/fabric/internal/domain"
 	"github.com/danielmiessler/fabric/internal/i18n"
 	"github.com/danielmiessler/fabric/internal/util"
-	ollamaapi "github.com/ollama/ollama/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -162,7 +161,7 @@ func TestSendStreamHonorsContextCancellation(t *testing.T) {
 			if r.Context().Err() != nil {
 				return
 			}
-			_ = enc.Encode(ollamaapi.ChatResponse{Message: ollamaapi.Message{Content: "chunk "}, Done: i == totalChunks-1})
+			_ = enc.Encode(ollamaChatResponse{Message: ollamaMessage{Content: "chunk "}, Done: i == totalChunks-1})
 			w.(http.Flusher).Flush()
 			time.Sleep(25 * time.Millisecond)
 		}
@@ -172,7 +171,7 @@ func TestSendStreamHonorsContextCancellation(t *testing.T) {
 	baseURL, err := url.Parse(server.URL)
 	require.NoError(t, err)
 
-	client := &Client{client: ollamaapi.NewClient(baseURL, server.Client())}
+	client := &Client{apiUrl: baseURL, httpClient: server.Client()}
 	channel := make(chan domain.StreamUpdate)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -205,7 +204,7 @@ func TestSendStreamClosesChannelOnChatError(t *testing.T) {
 	baseURL, err := url.Parse(server.URL)
 	require.NoError(t, err)
 
-	client := &Client{client: ollamaapi.NewClient(baseURL, server.Client())}
+	client := &Client{apiUrl: baseURL, httpClient: server.Client()}
 	channel := make(chan domain.StreamUpdate)
 
 	err = client.SendStream(
@@ -218,4 +217,47 @@ func TestSendStreamClosesChannelOnChatError(t *testing.T) {
 	require.Error(t, err)
 	_, ok := <-channel
 	assert.False(t, ok, "stream channel should be closed when Ollama chat returns an error")
+}
+
+func TestOllamaWireFormat(t *testing.T) {
+	var got map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/tags":
+			_, _ = w.Write([]byte(`{"models":[{"name":"a","model":"a:latest"}]}`))
+		case "/api/chat":
+			_ = json.NewDecoder(r.Body).Decode(&got)
+			if got["model"] == "missing" {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(`{"error":"model not found"}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"message":{"role":"assistant","content":"hi"},"done":true}` + "\n"))
+		}
+	}))
+	t.Cleanup(server.Close)
+	baseURL, err := url.Parse(server.URL)
+	require.NoError(t, err)
+	client := &Client{apiUrl: baseURL, httpClient: server.Client()}
+
+	models, err := client.ListModels(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, []string{"a:latest"}, models)
+
+	msg := &chat.ChatCompletionMessage{Role: chat.ChatMessageRoleUser, MultiContent: []chat.ChatMessagePart{
+		{Type: chat.ChatMessagePartTypeText, Text: "look"},
+		{Type: chat.ChatMessagePartTypeImageURL, ImageURL: &chat.ChatMessageImageURL{URL: "data:image/png;base64,AQID"}},
+	}}
+	ret, err := client.Send(context.Background(), []*chat.ChatCompletionMessage{msg}, &domain.ChatOptions{Model: "m", Thinking: domain.ThinkingOff})
+	require.NoError(t, err)
+	assert.Equal(t, "hi", ret)
+	assert.Equal(t, false, got["stream"])
+	assert.Equal(t, false, got["think"])
+	assert.Equal(t, []any{map[string]any{"role": "user", "content": "look", "images": []any{"AQID"}}}, got["messages"])
+
+	_, err = client.Send(context.Background(), []*chat.ChatCompletionMessage{msg}, &domain.ChatOptions{Model: "missing"})
+	var statusErr *StatusError
+	require.ErrorAs(t, err, &statusErr)
+	assert.Equal(t, http.StatusNotFound, statusErr.StatusCode)
+	assert.Equal(t, "model not found", statusErr.Message)
 }
