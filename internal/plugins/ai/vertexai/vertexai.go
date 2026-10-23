@@ -127,19 +127,6 @@ func getMaxTokens(opts *domain.ChatOptions) int64 {
 	return int64(defaultMaxTokens)
 }
 
-// setSamplingParams sets Temperature or TopP on a Claude request, as the model allows.
-// Some Claude models reject both, and the others reject a request that sets both.
-func setSamplingParams(params *anthropic.MessageNewParams, opts *domain.ChatOptions) {
-	if anthropicplugin.ModelDisallowsSamplingParams(opts.Model) {
-		return
-	}
-	if opts.TopP != domain.DefaultTopP {
-		params.TopP = anthropic.Opt(opts.TopP)
-	} else {
-		params.Temperature = anthropic.Opt(opts.Temperature)
-	}
-}
-
 func (c *Client) sendClaude(ctx context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions) (string, error) {
 	if c.client == nil {
 		return "", errors.New(i18n.T("vertexai_client_not_initialized"))
@@ -156,7 +143,7 @@ func (c *Client) sendClaude(ctx context.Context, msgs []*chat.ChatCompletionMess
 		Messages:  anthropicMessages,
 	}
 
-	setSamplingParams(&params, opts)
+	anthropicplugin.SetSamplingParams(&params, opts)
 
 	response, err := c.client.Messages.New(ctx, params)
 	if err != nil {
@@ -204,7 +191,7 @@ func (c *Client) sendStreamClaude(msgs []*chat.ChatCompletionMessage, opts *doma
 		Messages:  anthropicMessages,
 	}
 
-	setSamplingParams(&params, opts)
+	anthropicplugin.SetSamplingParams(&params, opts)
 
 	stream := c.client.Messages.NewStreaming(ctx, params)
 

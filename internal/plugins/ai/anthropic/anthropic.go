@@ -46,6 +46,21 @@ func ModelDisallowsSamplingParams(model string) bool {
 	})
 }
 
+// SetSamplingParams sets TopP or Temperature on a Claude request, as the model allows.
+// Some models reject both, and the others reject a request that sets both.
+func SetSamplingParams(params *anthropic.MessageNewParams, opts *domain.ChatOptions) {
+	if ModelDisallowsSamplingParams(opts.Model) {
+		return
+	}
+	if opts.TopP != domain.DefaultTopP {
+		params.TopP = anthropic.Opt(opts.TopP)
+	} else {
+		// Send temperature also at its default value. The Fabric default is 0.7,
+		// and the API default is 1.0.
+		params.Temperature = anthropic.Opt(opts.Temperature)
+	}
+}
+
 // These models reject the legacy `thinking.type=enabled` and `budget_tokens`
 // shape. Requests to them use `thinking.type=adaptive` with
 // `output_config.effort`. For the legacy shape, the API returns this error:
@@ -304,15 +319,7 @@ func (an *Client) buildMessageParams(msgs []anthropic.MessageParam, opts *domain
 		Messages:  msgs,
 	}
 
-	if ModelDisallowsSamplingParams(opts.Model) {
-		// Send no sampling parameters to these models.
-	} else if opts.TopP != domain.DefaultTopP {
-		params.TopP = anthropic.Opt(opts.TopP)
-	} else {
-		// Send temperature also at its default value. The Fabric default is 0.7,
-		// and the API default is 1.0.
-		params.Temperature = anthropic.Opt(opts.Temperature)
-	}
+	SetSamplingParams(&params, opts)
 
 	if opts.Search {
 		webTool := anthropic.WebSearchTool20250305Param{
