@@ -193,12 +193,17 @@ func (o *Client) sendStreamResponses(
 	req := o.buildResponseParams(msgs, opts)
 	stream := o.ApiClient.Responses.NewStreaming(ctx, req, o.requestOptions(opts.SessionID)...)
 	var sources []string
+	var failure error
 	for stream.Next() {
 		event := stream.Current()
 		switch event.Type {
 		case string(constant.ResponseCompleted("").Default()):
 			completed := event.AsResponseCompleted()
 			sources = searchResultSources(&completed.Response)
+		case string(constant.ResponseFailed("").Default()):
+			// A failed response ends the stream without an SDK error.
+			e := event.AsResponseFailed().Response.Error
+			failure = fmt.Errorf("response failed: %s (%s)", e.Message, e.Code)
 		case string(constant.ResponseOutputTextDelta("").Default()):
 			channel <- domain.StreamUpdate{
 				Type:    domain.StreamTypeContent,
@@ -209,17 +214,21 @@ func (o *Client) sendStreamResponses(
 			continue
 		}
 	}
-	if stream.Err() == nil {
-		content := "\n"
-		if len(sources) > 0 {
-			content = sourcesHeader + strings.Join(sources, "\n") + "\n"
-		}
-		channel <- domain.StreamUpdate{
-			Type:    domain.StreamTypeContent,
-			Content: content,
-		}
+	if err := stream.Err(); err != nil {
+		return err
 	}
-	return stream.Err()
+	if failure != nil {
+		return failure
+	}
+	content := "\n"
+	if len(sources) > 0 {
+		content = sourcesHeader + strings.Join(sources, "\n") + "\n"
+	}
+	channel <- domain.StreamUpdate{
+		Type:    domain.StreamTypeContent,
+		Content: content,
+	}
+	return nil
 }
 
 func (o *Client) Send(ctx context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions) (ret string, err error) {
