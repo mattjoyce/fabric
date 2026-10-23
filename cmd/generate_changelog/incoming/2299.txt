@@ -1,0 +1,7 @@
+### PR [#2299](https://github.com/danielmiessler/Fabric/pull/2299) by [ksylvan](https://github.com/ksylvan): fix: protect provider error details and bound response memory usage
+
+- Redacted private provider error details in responses unless debug mode is enabled, preventing sensitive information leaks.
+- Capped non-streaming model responses at 50 MiB and stopped retaining streaming response content in server memory to bound resource usage.
+- Replaced the Ollama SDK with direct HTTP requests and removed the unused Ollama dependencies from the Go and Nix manifests.
+- Added auditing for storage and configuration changes without logging sensitive request bodies.
+- Documented authentication throttling, access scope, limits, and audit events, and added tests covering redaction, auditing, response limits, and compatibility.
