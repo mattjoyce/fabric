@@ -909,6 +909,67 @@ func TestRunOAuthFlowIgnoresCallbackWithWrongState(t *testing.T) {
 	}
 }
 
+func TestSendStreamReturnsTheErrorOfAFailedResponse(t *testing.T) {
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		writeSSE(w, "data: "+marshalJSON(t, map[string]any{
+			"type":  string(constant.ResponseOutputTextDelta("").Default()),
+			"delta": "partial",
+		}))
+		writeSSE(w, "data: "+`{"type":"response.failed","sequence_number":2,"response":{"id":"resp_1","object":"response","created_at":0,"status":"failed","model":"gpt-5.4","output":[],"error":{"code":"server_error","message":"The model failed to generate a response."},"parallel_tool_calls":false,"tool_choice":"auto","tools":[]}}`)
+		writeSSE(w, "data: [DONE]")
+	}))
+	defer apiServer.Close()
+
+	client := newConfiguredTestClient(t, apiServer.URL, "acct_failed", testJWT("acct_failed", time.Now().Add(time.Hour)))
+
+	updates := make(chan domain.StreamUpdate, 8)
+	err := client.SendStream(context.Background(), []*chat.ChatCompletionMessage{
+		{Role: chat.ChatMessageRoleUser, Content: "Hello"},
+	}, &domain.ChatOptions{Model: "gpt-5.4"}, updates)
+	if err == nil {
+		t.Fatal("SendStream() error = nil, want the error of the failed response")
+	}
+	if !strings.Contains(err.Error(), "The model failed to generate a response.") {
+		t.Fatalf("SendStream() error = %q, want the message of the failed response", err.Error())
+	}
+}
+
+func TestSendStreamReportsUsage(t *testing.T) {
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		writeSSE(w, "data: "+marshalJSON(t, map[string]any{
+			"type":  string(constant.ResponseOutputTextDelta("").Default()),
+			"delta": "hello",
+		}))
+		writeSSE(w, "data: "+`{"type":"response.completed","sequence_number":2,"response":{"id":"resp_1","object":"response","created_at":0,"status":"completed","model":"gpt-5.4","output":[],"parallel_tool_calls":false,"tool_choice":"auto","tools":[],"usage":{"input_tokens":11,"input_tokens_details":{"cached_tokens":0},"output_tokens":7,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":18}}}`)
+		writeSSE(w, "data: [DONE]")
+	}))
+	defer apiServer.Close()
+
+	client := newConfiguredTestClient(t, apiServer.URL, "acct_usage", testJWT("acct_usage", time.Now().Add(time.Hour)))
+
+	updates := make(chan domain.StreamUpdate, 8)
+	if err := client.SendStream(context.Background(), []*chat.ChatCompletionMessage{
+		{Role: chat.ChatMessageRoleUser, Content: "Hello"},
+	}, &domain.ChatOptions{Model: "gpt-5.4"}, updates); err != nil {
+		t.Fatalf("SendStream() error = %v", err)
+	}
+
+	var usage *domain.UsageMetadata
+	for update := range updates {
+		if update.Type == domain.StreamTypeUsage {
+			usage = update.Usage
+		}
+	}
+	if usage == nil {
+		t.Fatal("SendStream() reported no usage")
+	}
+	if *usage != (domain.UsageMetadata{InputTokens: 11, OutputTokens: 7, TotalTokens: 18}) {
+		t.Fatalf("usage = %+v, want 11 input, 7 output, 18 total", *usage)
+	}
+}
+
 func TestConfigureRejectsPlaintextRemoteOrigins(t *testing.T) {
 	// The auth server fails the test if a token request gets to it.
 	authServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

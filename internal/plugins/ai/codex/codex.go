@@ -329,6 +329,25 @@ func (c *Client) SendStream(
 			}
 		case string(constant.ResponseOutputTextDone("").Default()):
 			continue
+		case string(constant.ResponseCompleted("").Default()):
+			if usage := event.AsResponseCompleted().Response.Usage; usage.TotalTokens > 0 {
+				if err := sendStreamUpdate(ctx, channel, domain.StreamUpdate{
+					Type: domain.StreamTypeUsage,
+					Usage: &domain.UsageMetadata{
+						InputTokens:  int(usage.InputTokens),
+						OutputTokens: int(usage.OutputTokens),
+						TotalTokens:  int(usage.TotalTokens),
+					},
+				}); err != nil {
+					return err
+				}
+			}
+		case string(constant.ResponseFailed("").Default()):
+			e := event.AsResponseFailed().Response.Error
+			if e.Code != "" {
+				return fmt.Errorf("%s (%s)", e.Message, e.Code)
+			}
+			return errors.New(e.Message)
 		}
 	}
 
