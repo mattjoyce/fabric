@@ -1,3 +1,0 @@
-### PR [#2298](https://github.com/danielmiessler/Fabric/pull/2298) by [pcbeingused333](https://github.com/pcbeingused333): fix: drop retired Bedrock and Vertex AI models from the Azure AI Gateway lists
-
-- Removed retired Bedrock and Vertex AI models from the Azure AI Gateway model lists.
