@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.4.552 (2026-10-23)
+
+### PR [#2307](https://github.com/danielmiessler/Fabric/pull/2307) by [StudioPlatforms](https://github.com/StudioPlatforms): feat(providers): add AI Stupid Level as an OpenAI-compatible provider
+
+- Added AI Stupid Level as an OpenAI-compatible provider (vendor `AIStupidLevel`) with base URL `https://aistupidlevel.info/v1`.
+- The API key is read from `AISTUPIDLEVEL_API_KEY`.
+- Added a `TestCreateClient` case for the new provider.
+- Listed AIStupidLevel in the English, Chinese and Arabic READMEs.
+
 ## v1.4.551 (2026-10-23)
 
 ### PR [#2308](https://github.com/danielmiessler/Fabric/pull/2308) by [ksylvan](https://github.com/ksylvan): fix: honor caller context in AI vendor plugins
