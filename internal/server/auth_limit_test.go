@@ -1,6 +1,7 @@
 package restapi
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,15 +10,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type fakeClock struct{ now time.Time }
-
-func (c *fakeClock) Now() time.Time          { return c.now }
-func (c *fakeClock) Advance(d time.Duration) { c.now = c.now.Add(d) }
-
-func limitedRouter(clock *fakeClock) *gin.Engine {
+func limitedRouter(now *time.Time) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	limiter := newAuthFailureLimiter()
-	limiter.now = clock.Now
+	limiter.now = func() time.Time { return *now }
 	r := gin.New()
 	_ = r.SetTrustedProxies(nil)
 	r.Use(apiKeyMiddleware("secret", limiter))
@@ -37,8 +33,8 @@ func send(r *gin.Engine, remote, key string) *httptest.ResponseRecorder {
 }
 
 func TestAPIKeyMiddlewareLocksOutAClientAfterRepeatedWrongKeys(t *testing.T) {
-	clock := &fakeClock{now: time.Unix(1_700_000_000, 0)}
-	r := limitedRouter(clock)
+	now := time.Unix(1_700_000_000, 0)
+	r := limitedRouter(&now)
 
 	for i := range maxAuthFailures {
 		if w := send(r, "203.0.113.5", "guess"); w.Code != http.StatusUnauthorized {
@@ -61,21 +57,21 @@ func TestAPIKeyMiddlewareLocksOutAClientAfterRepeatedWrongKeys(t *testing.T) {
 	}
 
 	// The lockout ends.
-	clock.Advance(authLockout + time.Second)
+	now = now.Add(authLockout + time.Second)
 	if w := send(r, "203.0.113.5", "secret"); w.Code != http.StatusOK {
 		t.Errorf("after the lockout: got %d, want 200", w.Code)
 	}
 }
 
 func TestAPIKeyMiddlewareForgetsOldFailures(t *testing.T) {
-	clock := &fakeClock{now: time.Unix(1_700_000_000, 0)}
-	r := limitedRouter(clock)
+	now := time.Unix(1_700_000_000, 0)
+	r := limitedRouter(&now)
 
 	for range 3 {
 		for range maxAuthFailures - 1 {
 			send(r, "203.0.113.5", "guess")
 		}
-		clock.Advance(authFailureWindow + time.Second)
+		now = now.Add(authFailureWindow + time.Second)
 	}
 
 	if w := send(r, "203.0.113.5", "secret"); w.Code != http.StatusOK {
@@ -84,8 +80,8 @@ func TestAPIKeyMiddlewareForgetsOldFailures(t *testing.T) {
 }
 
 func TestAPIKeyMiddlewareMissingKeyDoesNotCountAsAGuess(t *testing.T) {
-	clock := &fakeClock{now: time.Unix(1_700_000_000, 0)}
-	r := limitedRouter(clock)
+	now := time.Unix(1_700_000_000, 0)
+	r := limitedRouter(&now)
 
 	for i := range maxAuthFailures * 2 {
 		if w := send(r, "203.0.113.5", ""); w.Code != http.StatusUnauthorized {
@@ -98,12 +94,10 @@ func TestAPIKeyMiddlewareMissingKeyDoesNotCountAsAGuess(t *testing.T) {
 }
 
 func TestAuthFailureLimiterTableStaysBounded(t *testing.T) {
-	clock := &fakeClock{now: time.Unix(1_700_000_000, 0)}
 	limiter := newAuthFailureLimiter()
-	limiter.now = clock.Now
 
 	for i := range maxTrackedClients + 500 {
-		limiter.fail("client-" + time.Duration(i).String())
+		limiter.fail(fmt.Sprint(i))
 	}
 	if got := len(limiter.clients); got > maxTrackedClients {
 		t.Errorf("tracked clients = %d, want at most %d", got, maxTrackedClients)

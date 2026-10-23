@@ -88,17 +88,9 @@ func (l *authFailureLimiter) fail(client string) time.Duration {
 	return 0
 }
 
-// prune drops the entries that no longer count. When the table is still full
-// the oldest window goes too, so that a flood of addresses cannot grow it.
+// prune drops each client that is not locked, so that a flood of addresses
+// cannot grow the table. Locked clients stay locked.
 func (l *authFailureLimiter) prune(now time.Time) {
-	for client, entry := range l.clients {
-		if now.Sub(entry.windowStart) > authFailureWindow && !entry.lockedUntil.After(now) {
-			delete(l.clients, client)
-		}
-	}
-	if len(l.clients) < maxTrackedClients {
-		return
-	}
 	for client, entry := range l.clients {
 		if !entry.lockedUntil.After(now) {
 			delete(l.clients, client)
