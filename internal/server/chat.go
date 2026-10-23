@@ -2,6 +2,7 @@ package restapi
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -128,7 +129,7 @@ func (h *ChatHandler) HandleChat(c *gin.Context) {
 				)
 				if err != nil {
 					log.Printf("Error creating chatter: %v", err)
-					streamChan <- domain.StreamUpdate{Type: domain.StreamTypeError, Content: fmt.Sprintf(i18n.T("server_chat_error"), err)}
+					sendErrChan <- err
 					return
 				}
 
@@ -149,7 +150,7 @@ func (h *ChatHandler) HandleChat(c *gin.Context) {
 
 				_, err = chatter.Send(c.Request.Context(), chatReq, opts)
 				if err != nil {
-					log.Printf("Error from chatter.Send: %v", err)
+					log.Printf("Error from chatter.Send: %s", publicError(err))
 					sendErrChan <- err
 					return
 				}
@@ -175,11 +176,12 @@ func (h *ChatHandler) HandleChat(c *gin.Context) {
 							Usage: update.Usage,
 						}
 					case domain.StreamTypeError:
+						// Only a provider sends an error update to streamChan.
 						sawError = true
 						response = StreamResponse{
 							Type:    "error",
 							Format:  "plain",
-							Content: update.Content,
+							Content: publicError(&domain.ProviderError{Err: errors.New(update.Content)}),
 						}
 					}
 
@@ -236,7 +238,7 @@ func unreportedSendError(sendErrChan <-chan error, sawError bool) (StreamRespons
 		return StreamResponse{
 			Type:    "error",
 			Format:  "plain",
-			Content: fmt.Sprintf(i18n.T("server_chat_error"), sendErr),
+			Content: fmt.Sprintf(i18n.T("server_chat_error"), publicError(sendErr)),
 		}, true
 	default:
 		return StreamResponse{}, false

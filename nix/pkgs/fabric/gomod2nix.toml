@@ -280,9 +280,6 @@ schema = 3
   [mod."github.com/leodido/go-urn"]
     version = "v1.5.0"
     hash = "sha256-CEeM2l10p4WK0GoRxIzKcx+6hn1eQj1d3MyyY35XNh0="
-  [mod."github.com/mailru/easyjson"]
-    version = "v0.9.2"
-    hash = "sha256-178Wz0XN1ghBYXWYQMSbByqPfsUc0mAf+p6j6mAJ4jg="
   [mod."github.com/mattn/go-isatty"]
     version = "v0.0.24"
     hash = "sha256-pmq8KKIb2+qMF3E1cR2B7NAj5joF2tZduyXjIfIlkTk="
@@ -298,9 +295,6 @@ schema = 3
   [mod."github.com/nicksnyder/go-i18n/v2"]
     version = "v2.6.1"
     hash = "sha256-ag/8GBAwqkOyIVrdlaFYLxy9dgPOq7VbactrLmzxK7E="
-  [mod."github.com/ollama/ollama"]
-    version = "v0.40.8"
-    hash = "sha256-RGSmYafz65SspBo9bzXGd7zlDbge/YrUcnA8rp81NjM="
   [mod."github.com/openai/openai-go/v3"]
     version = "v3.85.0"
     hash = "sha256-Lq+UFOnMXTi624UDF72BzEuOkmzSahHWz634oZkh/uE="
@@ -382,9 +376,6 @@ schema = 3
   [mod."github.com/ugorji/go/codec"]
     version = "v1.3.2"
     hash = "sha256-/W4sowusGHO1Fb4mlqNQlfqgl278E0BqgMUzexkzWVw="
-  [mod."github.com/wk8/go-ordered-map/v2"]
-    version = "v2.1.8"
-    hash = "sha256-v7/5+7lAypZfgClXgWxhxtA1skQq9o+1yrI+V0o1j2o="
   [mod."github.com/xanzy/ssh-agent"]
     version = "v0.3.3"
     hash = "sha256-l3pGB6IdzcPA/HLk93sSN6NM2pKPy+bVOoacR5RC2+c="

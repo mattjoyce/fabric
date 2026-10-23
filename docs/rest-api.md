@@ -64,9 +64,9 @@ Example:
 curl -H "X-API-Key: my_secret_key" http://localhost:8080/patterns/names
 ```
 
-Use a random key of 16 or more characters. The server warns at startup when the key is shorter. The server has no limit on wrong keys.
+Use a random key of 16 or more characters. The server warns at startup when the key is shorter. After 10 wrong keys in one minute from one client address, the server answers `429 Too Many Requests` to that address for one minute. This also applies to requests with the correct key.
 
-The API key is an admin key. A client with the key can read and change patterns, contexts and sessions, and can change the configuration, for example the Ollama URL. Do not give the key to a user that must not see the prompts of other users.
+The API key is an admin key. A client with the key can read and change patterns, contexts and sessions, and can change the configuration, for example the Ollama URL. Do not give the key to a user that must not see the prompts of other users. The server has one key and no scoped or read-only keys. To give a user less access, run a different server with a different key and a different configuration directory.
 
 The server uses plain HTTP. On a non-loopback address, the key and the prompts go over the network as clear text. Put a reverse proxy with TLS in front of the server.
 
@@ -96,6 +96,25 @@ The server answers `OPTIONS` preflight requests before the API key check. It acc
 The endpoints that read a JSON body need the header `Content-Type: application/json`. These endpoints are `POST /chat`, `POST /patterns/:name/apply`, `POST /config/update`, `POST /youtube/transcript` and `POST /api/chat`. The server rejects other content types with `415 Unsupported Media Type`.
 
 The save endpoints (`POST /patterns/:name`, `POST /contexts/:name` and `POST /sessions/:name`) take the raw body with any content type.
+
+## Limits
+
+The maximum size of a request body is 50 MiB. The server answers `413 Request Entity Too Large` to each larger request, with or without a `Content-Length` header.
+
+On `POST /api/chat` with stream off, the maximum size of a model response is 50 MiB. The server answers `502 Bad Gateway` to a larger response.
+
+## Provider errors
+
+The text of a provider error can repeat the prompt, the pattern, the context or the session. Thus the server sends only the HTTP status and the error code of a provider error to the client and to its log, for example `provider error: status 400, code invalid_request_error`. To get the full text, start the server with `--debug 1` or more. Errors from Fabric, for example a missing pattern variable, show the full text.
+
+## Audit log
+
+The server writes structured log events for these requests:
+
+- `API key missing`, `API key wrong` and `too many wrong API keys`, with the client address and the path.
+- `audit: change` after each save, rename or delete of a pattern, context or session, and after each `POST /config/update`. The event has the method, the path, the status and the client address.
+
+The events do not include the request body or a key.
 
 ## Endpoints
 
