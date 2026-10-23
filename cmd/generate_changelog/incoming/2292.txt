@@ -1,0 +1,7 @@
+### PR [#2292](https://github.com/danielmiessler/Fabric/pull/2292) by [pcbeingused333](https://github.com/pcbeingused333): fix(openai): return the error of a failed Responses API stream
+
+- Fixed the OpenAI integration so that errors from a failed Responses API stream are properly returned instead of being silently ignored.
+- Simplified error handling in the OpenAI response stream by returning stream errors before processing response failure events.
+- Formatted response failures inline with the associated message and error code for clearer diagnostics.
+- Removed the standalone helper used to format response failure errors, reducing redundant code.
+- Ensured trailing content is emitted only after the stream is confirmed successful.
