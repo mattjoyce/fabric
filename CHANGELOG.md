@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.4.547 (2026-10-23)
+
+### PR [#2296](https://github.com/danielmiessler/Fabric/pull/2296) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(gemini): return an error when a response is blocked or stopped by a safety filter
+
+- Fixed Gemini streaming responses to return an error when a stream is blocked or stopped by a safety filter.
+- Fixed non-streaming Gemini responses to return an error when the response is blocked.
+- Treated image prohibited-content and image recitation stop reasons as blocked responses.
+
 ## v1.4.546 (2026-10-23)
 
 ### PR [#2288](https://github.com/danielmiessler/Fabric/pull/2288) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(server): lock out a client after repeated wrong API keys
