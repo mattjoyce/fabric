@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.4.553 (2026-10-23)
+
+### PR [#2306](https://github.com/danielmiessler/Fabric/pull/2306) by [pcbeingused333](https://github.com/pcbeingused333): fix(anthropic): don't send thinking.type=disabled to models that reject it
+
+- Fixed an Anthropic provider issue where `--thinking=off` sent `thinking.type=disabled` to models that reject it (Opus 5.5, Sonnet 5.5, Fable 5/5.1, and the Mythos models), causing 400 errors.
+- Replaced the unsupported setting with `thinking.type=between_tools` for Sonnet 5.5 and adaptive thinking at low effort for models that cannot disable thinking entirely.
+
 ## v1.4.552 (2026-10-23)
 
 ### PR [#2307](https://github.com/danielmiessler/Fabric/pull/2307) by [StudioPlatforms](https://github.com/StudioPlatforms): feat(providers): add AI Stupid Level as an OpenAI-compatible provider
