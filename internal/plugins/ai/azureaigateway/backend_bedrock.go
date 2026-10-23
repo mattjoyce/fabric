@@ -13,6 +13,7 @@ import (
 	"github.com/danielmiessler/fabric/internal/domain"
 	"github.com/danielmiessler/fabric/internal/i18n"
 	debuglog "github.com/danielmiessler/fabric/internal/log"
+	anthropicplugin "github.com/danielmiessler/fabric/internal/plugins/ai/anthropic"
 )
 
 const bedrockAnthropicVersion = "bedrock-2023-05-31"
@@ -95,12 +96,15 @@ func (b *BedrockBackend) PrepareRequest(msgs []*chat.ChatCompletionMessage, opts
 	if len(systemParts) > 0 {
 		body["system"] = strings.Join(systemParts, "\n\n")
 	}
-	// The Anthropic API accepts temperature or top_p, not both.
-	// Send top_p when it is not the default. Otherwise send temperature.
-	if opts.TopP != domain.DefaultTopP {
-		body["top_p"] = opts.TopP
-	} else {
-		body["temperature"] = opts.Temperature
+	// Some Claude models reject temperature and top_p. The Anthropic API accepts
+	// temperature or top_p, not both: send top_p when it is not the default,
+	// otherwise temperature.
+	if !anthropicplugin.ModelDisallowsSamplingParams(opts.Model) {
+		if opts.TopP != domain.DefaultTopP {
+			body["top_p"] = opts.TopP
+		} else {
+			body["temperature"] = opts.Temperature
+		}
 	}
 
 	return json.Marshal(body)
