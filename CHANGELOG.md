@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.4.543 (2026-10-23)
+
+### PR [#2297](https://github.com/danielmiessler/Fabric/pull/2297) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(claude): omit temperature and top_p for Claude models that reject them on Bedrock gateway and Vertex AI
+
+- Fixed Claude requests by omitting `temperature` and `top_p` for models that reject them on the Bedrock gateway and Vertex AI.
+- Centralized Claude sampling parameter logic so it is shared across the Anthropic and Vertex AI integrations.
+- Preserved per-model restrictions and the mutually exclusive handling of sampling parameters.
+- Moved sampling tests into the shared Anthropic package for consistent coverage.
+- Added the corresponding changelog entry for this change.
+
 ## v1.4.542 (2026-10-23)
 
 ### PR [#2298](https://github.com/danielmiessler/Fabric/pull/2298) by [pcbeingused333](https://github.com/pcbeingused333): fix: drop retired Bedrock and Vertex AI models from the Azure AI Gateway lists
