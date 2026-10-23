@@ -29,12 +29,10 @@ func NewVertexAIBackend(subscriptionKey string) *VertexAIBackend {
 // ListModels returns the list of Gemini models available through Vertex AI
 func (b *VertexAIBackend) ListModels(_ context.Context) ([]string, error) {
 	return []string{
+		"gemini-3.8-flash",
+		"gemini-3.5-flash",
+		"gemini-3.5-flash-lite",
 		"gemini-3-pro-preview",
-		"gemini-2.5-pro",
-		"gemini-2.5-flash",
-		"gemini-2.5-flash-lite",
-		"gemini-2.0-flash",
-		"gemini-2.0-flash-lite",
 	}, nil
 }
 
