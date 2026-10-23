@@ -1,3 +1,7 @@
 ### PR [#2288](https://github.com/danielmiessler/Fabric/pull/2288) by [pcbeingused333](https://github.com/pcbeingused333): fix(server): lock out a client after repeated wrong API keys
 
-- Answer 429 with a Retry-After header to a client address that sends 10 wrong API keys within a minute, for a minute.
+- Added rate limiting that locks out a client address for one minute after 10 invalid API keys within a minute, returning HTTP 429 with a `Retry-After` header for all subsequent requests, including those with a valid key.
+- Excluded requests with missing API keys from the failure count, since they are not treated as guesses.
+- Bounded the table of tracked clients to prevent unlimited memory growth.
+- Improved pruning of authentication failures by removing all unlocked clients while preserving active lockouts.
+- Simplified the authentication limit tests with directly controlled clock values and numeric client identifiers.
