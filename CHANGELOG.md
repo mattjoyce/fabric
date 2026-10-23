@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.4.542 (2026-10-23)
+
+### PR [#2298](https://github.com/danielmiessler/Fabric/pull/2298) by [pcbeingused333](https://github.com/pcbeingused333): fix: drop retired Bedrock and Vertex AI models from the Azure AI Gateway lists
+
+- Removed retired Bedrock and Vertex AI models from the Azure AI Gateway model lists.
+
 ## v1.4.541 (2026-10-22)
 
 ### PR [#2286](https://github.com/danielmiessler/Fabric/pull/2286) by [pcbeingused333](https://github.com/pcbeingused333) and [ksyvan](https://github.com/ksyvan): fix(server): log request values quoted and upstream error bodies cut
