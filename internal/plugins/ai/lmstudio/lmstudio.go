@@ -52,10 +52,10 @@ func (c *Client) configure() error {
 }
 
 // ListModels returns a list of available models.
-func (c *Client) ListModels(_ context.Context) ([]string, error) {
+func (c *Client) ListModels(ctx context.Context) ([]string, error) {
 	url := fmt.Sprintf("%s/models", c.ApiUrl.Value)
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf(i18n.T("lmstudio_failed_create_request"), err)
 	}
@@ -89,7 +89,9 @@ func (c *Client) ListModels(_ context.Context) ([]string, error) {
 	return models, nil
 }
 
-func (c *Client) SendStream(_ context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions, channel chan domain.StreamUpdate) (err error) {
+func (c *Client) SendStream(ctx context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions, channel chan domain.StreamUpdate) (err error) {
+	defer close(channel)
+
 	url := fmt.Sprintf("%s/chat/completions", c.ApiUrl.Value)
 
 	payload := map[string]any{
@@ -108,7 +110,7 @@ func (c *Client) SendStream(_ context.Context, msgs []*chat.ChatCompletionMessag
 	}
 
 	var req *http.Request
-	if req, err = http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload)); err != nil {
+	if req, err = http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonPayload)); err != nil {
 		err = fmt.Errorf(i18n.T("lmstudio_failed_create_request"), err)
 		return
 	}
@@ -127,8 +129,6 @@ func (c *Client) SendStream(_ context.Context, msgs []*chat.ChatCompletionMessag
 		err = fmt.Errorf(i18n.T("lmstudio_unexpected_status_code"), resp.StatusCode)
 		return
 	}
-
-	defer close(channel)
 
 	reader := bufio.NewReader(resp.Body)
 	for {

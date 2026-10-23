@@ -86,7 +86,7 @@ func (c *Client) IsConfigured() bool {
 func (c *Client) ListModels(ctx context.Context) ([]string, error) {
 	if c.modelsURL != "" {
 		if c.modelsURL == "static:abacus" {
-			models, err := c.fetchAbacusModels()
+			models, err := c.fetchAbacusModels(ctx)
 			if err == nil && len(models) > 0 {
 				return models, nil
 			}
@@ -96,8 +96,7 @@ func (c *Client) ListModels(ctx context.Context) ([]string, error) {
 		if strings.HasPrefix(c.modelsURL, "static:") {
 			return c.getStaticModels(c.modelsURL)
 		}
-		// TODO: pass ctx instead of context.Background().
-		return openai.FetchModelsDirectly(context.Background(), c.modelsURL, c.Client.ApiKey.Value, c.GetName(), nil)
+		return openai.FetchModelsDirectly(ctx, c.modelsURL, c.Client.ApiKey.Value, c.GetName(), nil)
 	}
 
 	models, err := c.Client.ListModels(ctx)
@@ -108,8 +107,8 @@ func (c *Client) ListModels(ctx context.Context) ([]string, error) {
 	return c.DirectlyGetModels(ctx)
 }
 
-func (c *Client) fetchAbacusModels() ([]string, error) {
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, abacusRouteLLMModelsURL, nil)
+func (c *Client) fetchAbacusModels(ctx context.Context) ([]string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, abacusRouteLLMModelsURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -248,6 +247,11 @@ var ProviderMap = map[string]ProviderConfig{
 		BaseURL:             "https://api.aimlapi.com/v1",
 		ImplementsResponses: false,
 	},
+	"AIStupidLevel": {
+		Name:                "AIStupidLevel",
+		BaseURL:             "https://aistupidlevel.info/v1",
+		ImplementsResponses: false,
+	},
 	"Aliyun DashScope": {
 		Name:                "Aliyun DashScope",
 		BaseURL:             "https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -297,6 +301,11 @@ var ProviderMap = map[string]ProviderConfig{
 	"FuturMix": {
 		Name:                "FuturMix",
 		BaseURL:             "https://futurmix.ai/v1",
+		ImplementsResponses: false,
+	},
+	"Hostinger Router": {
+		Name:                "Hostinger Router",
+		BaseURL:             "https://router.hostinger.com/v1",
 		ImplementsResponses: false,
 	},
 	"Infermatic": {
@@ -386,6 +395,11 @@ var ProviderMap = map[string]ProviderConfig{
 	"OrcaRouter": {
 		Name:                "OrcaRouter",
 		BaseURL:             "https://api.orcarouter.ai/v1",
+		ImplementsResponses: false,
+	},
+	"OVHcloud": {
+		Name:                "OVHcloud",
+		BaseURL:             "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1",
 		ImplementsResponses: false,
 	},
 	"Pzero": {

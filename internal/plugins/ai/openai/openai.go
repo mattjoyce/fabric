@@ -1,7 +1,9 @@
 package openai
 
 import (
+	"cmp"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -76,6 +78,8 @@ type Client struct {
 	sessionHeaderName string
 	// userAgent, when non-empty, overrides the SDK's default User-Agent header.
 	userAgent string
+	// responseParamsHook, when set, changes each Responses API request after Fabric builds it.
+	responseParamsHook func(*responses.ResponseNewParams)
 }
 
 // SetResponsesAPIEnabled configures whether to use the Responses API
@@ -111,6 +115,12 @@ func (o *Client) SetUserAgent(userAgent string) {
 	o.userAgent = userAgent
 }
 
+// SetResponseParamsHook sets a function that changes each Responses API
+// request after Fabric builds it. Perplexity uses it to select presets.
+func (o *Client) SetResponseParamsHook(hook func(*responses.ResponseNewParams)) {
+	o.responseParamsHook = hook
+}
+
 // requestOptions returns per-request options that attach Fabric's session ID
 // and User-Agent headers when configured. Providers that do not set these
 // values get an empty slice, preserving default behavior.
@@ -132,6 +142,10 @@ func checkImageGenerationCompatibility(model string) {
 }
 
 func (o *Client) configure() (ret error) {
+	// With no base URL, the SDK reads OPENAI_BASE_URL from the environment.
+	if ret = plugins.RequireSecureBaseURL(cmp.Or(o.ApiBaseURL.Value, os.Getenv("OPENAI_BASE_URL"))); ret != nil {
+		return
+	}
 	opts := []option.RequestOption{option.WithAPIKey(o.ApiKey.Value)}
 	if o.ApiBaseURL.Value != "" {
 		opts = append(opts, option.WithBaseURL(o.ApiBaseURL.Value))
@@ -178,9 +192,18 @@ func (o *Client) sendStreamResponses(
 
 	req := o.buildResponseParams(msgs, opts)
 	stream := o.ApiClient.Responses.NewStreaming(ctx, req, o.requestOptions(opts.SessionID)...)
+	var sources []string
+	var failure error
 	for stream.Next() {
 		event := stream.Current()
 		switch event.Type {
+		case string(constant.ResponseCompleted("").Default()):
+			completed := event.AsResponseCompleted()
+			sources = searchResultSources(&completed.Response)
+		case string(constant.ResponseFailed("").Default()):
+			// A failed response ends the stream without an SDK error.
+			e := event.AsResponseFailed().Response.Error
+			failure = fmt.Errorf("response failed: %s (%s)", e.Message, e.Code)
 		case string(constant.ResponseOutputTextDelta("").Default()):
 			channel <- domain.StreamUpdate{
 				Type:    domain.StreamTypeContent,
@@ -191,13 +214,21 @@ func (o *Client) sendStreamResponses(
 			continue
 		}
 	}
-	if stream.Err() == nil {
-		channel <- domain.StreamUpdate{
-			Type:    domain.StreamTypeContent,
-			Content: "\n",
-		}
+	if err := stream.Err(); err != nil {
+		return err
 	}
-	return stream.Err()
+	if failure != nil {
+		return failure
+	}
+	content := "\n"
+	if len(sources) > 0 {
+		content = sourcesHeader + strings.Join(sources, "\n") + "\n"
+	}
+	channel <- domain.StreamUpdate{
+		Type:    domain.StreamTypeContent,
+		Content: content,
+	}
+	return nil
 }
 
 func (o *Client) Send(ctx context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions) (ret string, err error) {
@@ -371,6 +402,9 @@ func (o *Client) buildResponseParams(
 			ret.SetExtraFields(extraFields)
 		}
 	}
+	if o.responseParamsHook != nil {
+		o.responseParamsHook(&ret)
+	}
 	return
 }
 
@@ -437,10 +471,38 @@ func (o *Client) extractText(resp *responses.Response) (ret string) {
 
 	ret = strings.Join(textParts, "")
 
+	citations = append(citations, searchResultSources(resp)...)
 	if len(citations) > 0 {
-		ret += "\n\n## Sources\n\n" + strings.Join(citations, "\n")
+		ret += sourcesHeader + strings.Join(citations, "\n")
 	}
 
+	return
+}
+
+const sourcesHeader = "\n\n## Sources\n\n"
+
+// searchResultSources lists the results of the Perplexity "search_results"
+// output items. The result IDs agree with the [n] markers in the answer text.
+func searchResultSources(resp *responses.Response) (ret []string) {
+	for _, item := range resp.Output {
+		if item.Type != "search_results" {
+			continue
+		}
+		var parsed struct {
+			Results []struct {
+				ID    int    `json:"id"`
+				Title string `json:"title"`
+				URL   string `json:"url"`
+			} `json:"results"`
+		}
+		if err := json.Unmarshal([]byte(item.RawJSON()), &parsed); err != nil {
+			debuglog.Debug(debuglog.Basic, "cannot parse search_results item: %v\n", err)
+			continue
+		}
+		for _, r := range parsed.Results {
+			ret = append(ret, fmt.Sprintf("- [%d] [%s](%s)", r.ID, r.Title, r.URL))
+		}
+	}
 	return
 }
 

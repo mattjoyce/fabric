@@ -1,5 +1,0 @@
-### PR [#2270](https://github.com/danielmiessler/Fabric/pull/2270) by [pcbeingused333](https://github.com/pcbeingused333): fix(anthropic): send adaptive thinking and no sampling params to Haiku 5.5, Mythos and Opus 4.7/4.8
-
-- Stop sending temperature to Claude Haiku 5.5 and Mythos models, which reject non-default sampling values.
-- Use adaptive thinking instead of budget_tokens for Opus 4.7/4.8, Haiku 5.5 and Mythos 5/5.1, which return 400 for budget-based thinking.
-- Update the existing test that expected Opus 4.7 to keep budget_tokens.

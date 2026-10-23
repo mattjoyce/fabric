@@ -13,12 +13,21 @@ import (
 
 	"github.com/danielmiessler/fabric/internal/chat"
 	"github.com/danielmiessler/fabric/internal/domain"
+	"github.com/danielmiessler/fabric/internal/i18n"
 	openai "github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/responses"
 	"github.com/openai/openai-go/v3/shared"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestMain(m *testing.M) {
+	if _, err := i18n.Init("en"); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to init i18n: %v\n", err)
+		os.Exit(1)
+	}
+	os.Exit(m.Run())
+}
 
 func TestNeedsRawModeGPT6(t *testing.T) {
 	if !NewClient().NeedsRawMode("gpt-6-astra") {
@@ -400,4 +409,29 @@ func TestBuildResponseParams_WebSearchToolsJSON(t *testing.T) {
 			assert.JSONEq(t, tt.want, string(got))
 		})
 	}
+}
+
+func TestExtractTextSearchResultSources(t *testing.T) {
+	var resp responses.Response
+	require.NoError(t, json.Unmarshal([]byte(`{"output":[
+		{"type":"search_results","queries":["q"],"results":[{"id":1,"title":"T1","url":"https://a.example"},{"id":2,"title":"T2","url":"https://b.example"}]},
+		{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Answer.[2]","annotations":[]}]}
+	]}`), &resp))
+
+	assert.Equal(t, "Answer.[2]\n\n## Sources\n\n- [1] [T1](https://a.example)\n- [2] [T2](https://b.example)", NewClient().extractText(&resp))
+}
+
+func TestConfigureRejectsPlaintextRemoteBaseURL(t *testing.T) {
+	client := NewClient()
+	client.ApiKey.Value = "synthetic-key"
+	client.ApiBaseURL.Value = "http://api.example.com/v1"
+	assert.ErrorContains(t, client.configure(), "http://api.example.com")
+}
+
+func TestConfigureRejectsPlaintextRemoteEnvBaseURL(t *testing.T) {
+	t.Setenv("OPENAI_BASE_URL", "http://env.example.com/v1")
+	client := NewClient()
+	client.ApiKey.Value = "synthetic-key"
+	client.ApiBaseURL.Value = ""
+	assert.ErrorContains(t, client.configure(), "http://env.example.com")
 }

@@ -380,11 +380,11 @@ func (f APIConvert) ollamaChat(c *gin.Context) {
 	}
 
 	if fabricRes.StatusCode < http.StatusOK || fabricRes.StatusCode >= http.StatusMultipleChoices {
-		bodyBytes, readErr := io.ReadAll(fabricRes.Body)
+		bodyBytes, readErr := io.ReadAll(io.LimitReader(fabricRes.Body, maxLoggedBodyBytes+1))
 		if readErr != nil {
 			log.Printf(i18n.T("ollama_upstream_non_2xx_body_unreadable"), fabricRes.StatusCode, readErr)
 		} else {
-			log.Printf(i18n.T("ollama_upstream_non_2xx"), fabricRes.StatusCode, string(bodyBytes))
+			log.Printf(i18n.T("ollama_upstream_non_2xx"), fabricRes.StatusCode, quoteForLog(bodyBytes))
 		}
 
 		replyOllamaError(c, prompt, fabricRes.StatusCode, fmt.Sprintf(i18n.T("ollama_upstream_returned_status"), fabricRes.StatusCode))
@@ -392,6 +392,7 @@ func (f APIConvert) ollamaChat(c *gin.Context) {
 	}
 
 	var contentBuilder strings.Builder
+	received := 0
 	scanner := bufio.NewScanner(fabricRes.Body)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for scanner.Scan() {
@@ -418,13 +419,20 @@ func (f APIConvert) ollamaChat(c *gin.Context) {
 		if fabricResponse.Type != "content" {
 			continue
 		}
-		contentBuilder.WriteString(fabricResponse.Content)
+		received += len(fabricResponse.Content)
 		if prompt.Stream {
 			if err := writeOllamaResponse(c, prompt.Model, fabricResponse.Content, false); err != nil {
 				log.Printf(i18n.T("ollama_error_writing_response"), err)
 				return
 			}
+			continue
 		}
+		// Without stream, the server keeps the full response in memory.
+		if received > MaxResponseBytes {
+			replyOllamaError(c, prompt, http.StatusBadGateway, "response too large")
+			return
+		}
+		contentBuilder.WriteString(fabricResponse.Content)
 	}
 	if err := scanner.Err(); err != nil {
 		log.Printf(i18n.T("ollama_error_scanning_body"), err)
@@ -441,7 +449,7 @@ func (f APIConvert) ollamaChat(c *gin.Context) {
 	duration := time.Since(now).Nanoseconds()
 
 	// Check if we received any content from upstream
-	if contentBuilder.Len() == 0 {
+	if received == 0 {
 		log.Printf("%s", i18n.T("ollama_warning_no_content"))
 		// In non-streaming mode, treat absence of content as an error
 		if !prompt.Stream {
@@ -563,4 +571,16 @@ func writeOllamaResponseStruct(c *gin.Context, response OllamaResponse) error {
 		flusher.Flush()
 	}
 	return nil
+}
+
+// maxLoggedBodyBytes is how much of an upstream error body goes to the log.
+const maxLoggedBodyBytes = 512
+
+// quoteForLog quotes body and cuts it at maxLoggedBodyBytes, so a body with
+// line breaks cannot add log lines of its own.
+func quoteForLog(body []byte) string {
+	if len(body) > maxLoggedBodyBytes {
+		return strconv.Quote(string(body[:maxLoggedBodyBytes])) + "..."
+	}
+	return strconv.Quote(string(body))
 }

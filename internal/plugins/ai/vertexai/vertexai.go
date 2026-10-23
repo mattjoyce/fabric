@@ -13,6 +13,7 @@ import (
 	"github.com/danielmiessler/fabric/internal/i18n"
 	debuglog "github.com/danielmiessler/fabric/internal/log"
 	"github.com/danielmiessler/fabric/internal/plugins"
+	anthropicplugin "github.com/danielmiessler/fabric/internal/plugins/ai/anthropic"
 	"github.com/danielmiessler/fabric/internal/plugins/ai/geminicommon"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -61,9 +62,7 @@ func (c *Client) configure() error {
 	return nil
 }
 
-func (c *Client) ListModels(_ context.Context) ([]string, error) {
-	ctx := context.Background()
-
+func (c *Client) ListModels(ctx context.Context) ([]string, error) {
 	creds, err := google.FindDefaultCredentials(ctx, cloudPlatformScope)
 	if err != nil {
 		return nil, fmt.Errorf(i18n.T("vertexai_failed_google_credentials"), err)
@@ -142,12 +141,7 @@ func (c *Client) sendClaude(ctx context.Context, msgs []*chat.ChatCompletionMess
 		Messages:  anthropicMessages,
 	}
 
-	// Some Claude models reject a request that sets both Temperature and TopP.
-	if opts.TopP != domain.DefaultTopP {
-		params.TopP = anthropic.Opt(opts.TopP)
-	} else {
-		params.Temperature = anthropic.Opt(opts.Temperature)
-	}
+	anthropicplugin.SetSamplingParams(&params, opts)
 
 	response, err := c.client.Messages.New(ctx, params)
 	if err != nil {
@@ -168,21 +162,20 @@ func (c *Client) sendClaude(ctx context.Context, msgs []*chat.ChatCompletionMess
 	return strings.Join(textParts, ""), nil
 }
 
-func (c *Client) SendStream(_ context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions, channel chan domain.StreamUpdate) error {
+func (c *Client) SendStream(ctx context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions, channel chan domain.StreamUpdate) error {
 	if isGeminiModel(opts.Model) {
-		return c.sendStreamGemini(msgs, opts, channel)
+		return c.sendStreamGemini(ctx, msgs, opts, channel)
 	}
-	return c.sendStreamClaude(msgs, opts, channel)
+	return c.sendStreamClaude(ctx, msgs, opts, channel)
 }
 
-func (c *Client) sendStreamClaude(msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions, channel chan domain.StreamUpdate) error {
+func (c *Client) sendStreamClaude(ctx context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions, channel chan domain.StreamUpdate) error {
 	if c.client == nil {
 		close(channel)
 		return errors.New(i18n.T("vertexai_client_not_initialized"))
 	}
 
 	defer close(channel)
-	ctx := context.Background()
 
 	anthropicMessages := c.toMessages(msgs)
 	if len(anthropicMessages) == 0 {
@@ -195,12 +188,7 @@ func (c *Client) sendStreamClaude(msgs []*chat.ChatCompletionMessage, opts *doma
 		Messages:  anthropicMessages,
 	}
 
-	// Some Claude models reject a request that sets both Temperature and TopP.
-	if opts.TopP != domain.DefaultTopP {
-		params.TopP = anthropic.Opt(opts.TopP)
-	} else {
-		params.Temperature = anthropic.Opt(opts.Temperature)
-	}
+	anthropicplugin.SetSamplingParams(&params, opts)
 
 	stream := c.client.Messages.NewStreaming(ctx, params)
 
@@ -313,9 +301,8 @@ func parseGeminiThinking(level domain.ThinkingLevel) *genai.ThinkingConfig {
 	return nil
 }
 
-func (c *Client) sendStreamGemini(msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions, channel chan domain.StreamUpdate) error {
+func (c *Client) sendStreamGemini(ctx context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions, channel chan domain.StreamUpdate) error {
 	defer close(channel)
-	ctx := context.Background()
 
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
 		Project:  c.ProjectID.Value,
@@ -357,10 +344,14 @@ func (c *Client) sendStreamGemini(msgs []*chat.ChatCompletionMessage, opts *doma
 				Type: domain.StreamTypeUsage,
 				Usage: &domain.UsageMetadata{
 					InputTokens:  int(response.UsageMetadata.PromptTokenCount),
-					OutputTokens: int(response.UsageMetadata.CandidatesTokenCount),
+					OutputTokens: geminicommon.OutputTokenCount(response.UsageMetadata),
 					TotalTokens:  int(response.UsageMetadata.TotalTokenCount),
 				},
 			}
+		}
+
+		if blockedErr := geminicommon.BlockedError(response); blockedErr != nil {
+			return blockedErr
 		}
 	}
 

@@ -298,6 +298,7 @@ go install github.com/danielmiessler/fabric/cmd/fabric@latest
 
 - Abacus
 - AIML
+- AIStupidLevel
 - API Route
 - Apple Foundation Models (محلي، macOS 27 أو أحدث: قم بتشغيل `sudo fm license` مرة واحدة، ثم `fm serve --port 1976`؛ لا يوجد مفتاح API؛ حدده مرة واحدة في `fabric -S` لتمكينه)
 - Cerebras
@@ -308,6 +309,7 @@ go install github.com/danielmiessler/fabric/cmd/fabric@latest
 - Eden AI
 - GrokAI
 - Groq
+- Hostinger Router
 - Langdock
 - LiteLLM
 - MiniMax

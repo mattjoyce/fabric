@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	neturl "net/url"
-	"os"
 	"path"
 	"slices"
 	"strconv"
@@ -27,7 +26,7 @@ const sourcesHeader = "## Sources"
 
 // These models reject non-default sampling parameters.
 // Requests to them do not include temperature or top_p.
-var samplingParamsDisallowedPrefixes = []string{
+var samplingParamsDisallowedModels = []string{
 	"claude-opus-4-7",
 	"claude-opus-4-8",
 	"claude-opus-5",
@@ -37,10 +36,29 @@ var samplingParamsDisallowedPrefixes = []string{
 	"claude-mythos",
 }
 
-func modelDisallowsSamplingParams(model string) bool {
-	return slices.ContainsFunc(samplingParamsDisallowedPrefixes, func(prefix string) bool {
-		return strings.HasPrefix(model, prefix)
+// ModelDisallowsSamplingParams reports whether a Claude model rejects temperature and top_p.
+// It matches anywhere in the ID, so Bedrock (`us.anthropic.claude-opus-5-5-v1:0`),
+// Vertex AI (`claude-opus-4-7@20260101`) and gateway (`anthropic/claude-opus-5`) IDs
+// resolve like the plain ones. Other plugins that call Claude use it too.
+func ModelDisallowsSamplingParams(model string) bool {
+	return slices.ContainsFunc(samplingParamsDisallowedModels, func(name string) bool {
+		return strings.Contains(model, name)
 	})
+}
+
+// SetSamplingParams sets TopP or Temperature on a Claude request, as the model allows.
+// Some models reject both, and the others reject a request that sets both.
+func SetSamplingParams(params *anthropic.MessageNewParams, opts *domain.ChatOptions) {
+	if ModelDisallowsSamplingParams(opts.Model) {
+		return
+	}
+	if opts.TopP != domain.DefaultTopP {
+		params.TopP = anthropic.Opt(opts.TopP)
+	} else {
+		// Send temperature also at its default value. The Fabric default is 0.7,
+		// and the API default is 1.0.
+		params.Temperature = anthropic.Opt(opts.Temperature)
+	}
 }
 
 // These models reject the legacy `thinking.type=enabled` and `budget_tokens`
@@ -111,6 +129,11 @@ func NewClient() (ret *Client) {
 	ret.defaultRequiredUserMessage = "Hi"
 	ret.models = []string{
 		string(anthropic.ModelClaudeOpus5_5),
+		string(anthropic.ModelClaudeFable5_1),
+		string(anthropic.ModelClaudeSonnet5_5),
+		string(anthropic.ModelClaudeHaiku5_5),
+		string(anthropic.ModelClaudeMythos5_1),
+		string(anthropic.ModelClaudeMythos5),
 		string(anthropic.ModelClaudeFable5),
 		string(anthropic.ModelClaudeSonnet5),
 		string(anthropic.ModelClaudeOpus5),
@@ -138,10 +161,15 @@ func NewClient() (ret *Client) {
 	// are not in the map.
 	const context1M = "context-1m-2025-08-07"
 	ret.modelBetas = map[string][]string{
-		string(anthropic.ModelClaudeOpus5_5): {context1M},
-		string(anthropic.ModelClaudeFable5):  {context1M},
-		string(anthropic.ModelClaudeOpus5):   {context1M},
-		string(anthropic.ModelClaudeSonnet5): {context1M},
+		string(anthropic.ModelClaudeOpus5_5):   {context1M},
+		string(anthropic.ModelClaudeFable5_1):  {context1M},
+		string(anthropic.ModelClaudeSonnet5_5): {context1M},
+		string(anthropic.ModelClaudeHaiku5_5):  {context1M},
+		string(anthropic.ModelClaudeMythos5_1): {context1M},
+		string(anthropic.ModelClaudeMythos5):   {context1M},
+		string(anthropic.ModelClaudeFable5):    {context1M},
+		string(anthropic.ModelClaudeOpus5):     {context1M},
+		string(anthropic.ModelClaudeSonnet5):   {context1M},
 
 		string(anthropic.ModelClaudeOpus4_8): {context1M},
 		string(anthropic.ModelClaudeOpus4_7): {context1M},
@@ -293,8 +321,8 @@ func (an *Client) SendStream(
 		}
 	}
 
-	if stream.Err() != nil {
-		fmt.Fprintf(os.Stderr, i18n.T("anthropic_stream_error"), stream.Err())
+	if streamErr := stream.Err(); streamErr != nil {
+		err = fmt.Errorf(i18n.T("anthropic_stream_error"), streamErr)
 	}
 	close(channel)
 	return
@@ -314,15 +342,7 @@ func (an *Client) buildMessageParams(msgs []anthropic.MessageParam, opts *domain
 		Messages:  msgs,
 	}
 
-	if modelDisallowsSamplingParams(opts.Model) {
-		// Send no sampling parameters to these models.
-	} else if opts.TopP != domain.DefaultTopP {
-		params.TopP = anthropic.Opt(opts.TopP)
-	} else {
-		// Send temperature also at its default value. The Fabric default is 0.7,
-		// and the API default is 1.0.
-		params.Temperature = anthropic.Opt(opts.Temperature)
-	}
+	SetSamplingParams(&params, opts)
 
 	if opts.Search {
 		webTool := anthropic.WebSearchTool20250305Param{

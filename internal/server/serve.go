@@ -52,6 +52,8 @@ func newSecuredEngine(registry *core.PluginRegistry, apiKey string, corsOrigins 
 		gin.SetMode(gin.ReleaseMode)
 	}
 	r := gin.New()
+	// First, so that the 401, 403 and 413 answers of the checks below get the headers too.
+	r.Use(SecurityHeadersMiddleware())
 	// The server is not behind a known proxy. Thus c.ClientIP() in the logs
 	// must not come from the X-Forwarded-For header, which a client can set.
 	_ = r.SetTrustedProxies(nil) // A nil list gives no error.
@@ -59,7 +61,7 @@ func newSecuredEngine(registry *core.PluginRegistry, apiKey string, corsOrigins 
 	// The query string can hold template variables, for example on
 	// POST /patterns/:name/apply. Do not write it to the log.
 	r.Use(gin.LoggerWithConfig(gin.LoggerConfig{SkipQueryString: true}))
-	r.Use(gin.Recovery())
+	r.Use(gin.RecoveryWithWriter(RedactingWriter{out: gin.DefaultErrorWriter}))
 
 	if len(corsOrigins) > 0 {
 		r.Use(CORSMiddleware(corsOrigins))

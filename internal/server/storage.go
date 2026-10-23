@@ -58,10 +58,10 @@ func NewStorageHandler[T any](r *gin.Engine, entityType string, storage db.Stora
 	ret = &StorageHandler[T]{storage: storage}
 	r.GET(fmt.Sprintf("/%s/:name", entityType), ret.Get)
 	r.GET(fmt.Sprintf("/%s/names", entityType), ret.GetNames)
-	r.DELETE(fmt.Sprintf("/%s/:name", entityType), ret.Delete)
+	r.DELETE(fmt.Sprintf("/%s/:name", entityType), auditChange, ret.Delete)
 	r.GET(fmt.Sprintf("/%s/exists/:name", entityType), ret.Exists)
-	r.PUT(fmt.Sprintf("/%s/rename/:oldName/:newName", entityType), ret.Rename)
-	r.POST(fmt.Sprintf("/%s/:name", entityType), ret.Save)
+	r.PUT(fmt.Sprintf("/%s/rename/:oldName/:newName", entityType), auditChange, ret.Rename)
+	r.POST(fmt.Sprintf("/%s/:name", entityType), auditChange, ret.Save)
 	return
 }
 

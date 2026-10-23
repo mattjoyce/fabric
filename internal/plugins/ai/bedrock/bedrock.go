@@ -420,8 +420,8 @@ func (c *BedrockClient) configure() error {
 // from AWS Bedrock that can be used with this plugin.
 // When using bearer token auth, the API may not be accessible, so a static
 // fallback list of common models is returned instead.
-func (c *BedrockClient) ListModels(_ context.Context) ([]string, error) {
-	models, err := c.listModelsFromAPI()
+func (c *BedrockClient) ListModels(ctx context.Context) ([]string, error) {
+	models, err := c.listModelsFromAPI(ctx)
 	if err != nil && c.bedrockAPIKey.Value != "" {
 		debuglog.Log(i18n.T("bedrock_listmodels_fallback")+": %v\n", err)
 		return defaultBedrockModels, nil
@@ -431,12 +431,11 @@ func (c *BedrockClient) ListModels(_ context.Context) ([]string, error) {
 
 // listModelsFromAPI returns the foundation model IDs and inference profile IDs
 // from the Bedrock control plane.
-func (c *BedrockClient) listModelsFromAPI() ([]string, error) {
+func (c *BedrockClient) listModelsFromAPI(ctx context.Context) ([]string, error) {
 	if c.controlPlaneClient == nil {
 		return nil, errors.New(i18n.T("bedrock_client_not_initialized"))
 	}
 	models := []string{}
-	ctx := context.Background()
 
 	foundationModels, err := c.controlPlaneClient.ListFoundationModels(ctx, &bedrock.ListFoundationModelsInput{})
 	if err != nil {
@@ -464,7 +463,7 @@ func (c *BedrockClient) listModelsFromAPI() ([]string, error) {
 }
 
 // SendStream sends the messages to the Bedrock ConverseStream API
-func (c *BedrockClient) SendStream(_ context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions, channel chan domain.StreamUpdate) (err error) {
+func (c *BedrockClient) SendStream(ctx context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions, channel chan domain.StreamUpdate) (err error) {
 	// Close the channel on every exit path, including a panic, so the reader does not block.
 	defer func() {
 		if r := recover(); r != nil {
@@ -489,7 +488,7 @@ func (c *BedrockClient) SendStream(_ context.Context, msgs []*chat.ChatCompletio
 		},
 	}
 
-	response, err := c.runtimeClient.ConverseStream(context.Background(), &converseInput)
+	response, err := c.runtimeClient.ConverseStream(ctx, &converseInput)
 	if err != nil {
 		return fmt.Errorf(i18n.T("bedrock_conversestream_failed"), opts.Model, err)
 	}
@@ -513,7 +512,7 @@ func (c *BedrockClient) SendStream(_ context.Context, msgs []*chat.ChatCompletio
 				Type:    domain.StreamTypeContent,
 				Content: "\n",
 			}
-			return nil // The deferred func closes the channel.
+			// Keep reading: the usage arrives in the Metadata event after MessageStop.
 
 		case *types.ConverseStreamOutputMemberMetadata:
 			if v.Value.Usage != nil {
@@ -535,6 +534,12 @@ func (c *BedrockClient) SendStream(_ context.Context, msgs []*chat.ChatCompletio
 		default:
 			return fmt.Errorf(i18n.T("bedrock_unknown_stream_event_type"), v)
 		}
+	}
+
+	// A stream cut short by an error ends the loop like a finished one: report it, so the
+	// partial answer is not taken for a complete one.
+	if streamErr := response.GetStream().Err(); streamErr != nil {
+		return fmt.Errorf(i18n.T("bedrock_conversestream_failed"), opts.Model, streamErr)
 	}
 
 	return nil

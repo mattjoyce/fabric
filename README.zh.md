@@ -364,6 +364,7 @@ Fabric 支持广泛的 AI 供应商：
 
 - Abacus
 - AIML
+- AIStupidLevel
 - API Route
 - Apple Foundation Models（本地，macOS 27 或更高版本：运行一次 `sudo fm license`，然后运行 `fm serve --port 1976`；无需 API 密钥；在 `fabric -S` 中选择一次即可启用）
 - Cerebras
@@ -373,6 +374,7 @@ Fabric 支持广泛的 AI 供应商：
 - Eden AI
 - GrokAI
 - Groq
+- Hostinger Router
 - Langdock
 - LiteLLM
 - MiniMax

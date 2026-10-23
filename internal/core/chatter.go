@@ -139,7 +139,7 @@ func (o *Chatter) Send(ctx context.Context, request *domain.ChatRequest, opts *d
 		go func() {
 			defer close(done)
 			if streamErr := o.vendor.SendStream(ctx, session.GetVendorMessages(), opts, responseChan); streamErr != nil {
-				recordFirstStreamError(errChan, streamErr)
+				recordFirstStreamError(errChan, &domain.ProviderError{Err: streamErr})
 			}
 		}()
 
@@ -187,7 +187,7 @@ func (o *Chatter) Send(ctx context.Context, request *domain.ChatRequest, opts *d
 				if !opts.Quiet {
 					fmt.Fprintf(os.Stderr, "%s\n", fmt.Sprintf(i18n.T("chatter_error_stream_update"), update.Content))
 				}
-				recordFirstStreamError(errChan, errors.New(update.Content))
+				recordFirstStreamError(errChan, &domain.ProviderError{Err: errors.New(update.Content)})
 			}
 		}
 
@@ -208,6 +208,7 @@ func (o *Chatter) Send(ctx context.Context, request *domain.ChatRequest, opts *d
 		}
 	} else {
 		if message, err = o.vendor.Send(ctx, session.GetVendorMessages(), opts); err != nil {
+			err = &domain.ProviderError{Err: err}
 			return
 		}
 		if debuglog.GetLevel() >= debuglog.Wire {

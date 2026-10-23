@@ -1,10 +1,25 @@
 package openai_compatible
 
 import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"testing"
+	"time"
 
+	"github.com/danielmiessler/fabric/internal/i18n"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestMain(m *testing.M) {
+	if _, err := i18n.Init("en"); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to init i18n: %v\n", err)
+		os.Exit(1)
+	}
+	os.Exit(m.Run())
+}
 
 func TestCreateClient(t *testing.T) {
 	testCases := []struct {
@@ -35,6 +50,16 @@ func TestCreateClient(t *testing.T) {
 		{
 			name:     "Existing provider - Abacus",
 			provider: "Abacus",
+			exists:   true,
+		},
+		{
+			name:     "Existing provider - AIStupidLevel",
+			provider: "AIStupidLevel",
+			exists:   true,
+		},
+		{
+			name:     "Existing provider - Hostinger Router",
+			provider: "Hostinger Router",
 			exists:   true,
 		},
 		{
@@ -166,5 +191,49 @@ func TestIsConfiguredOptionalKey(t *testing.T) {
 	groq, _ := CreateClient("Groq")
 	if groq.IsConfigured() {
 		t.Fatal("required-key provider must not be configured without a key")
+	}
+}
+
+func TestConfigureRequiresHTTPSForRemoteBaseURL(t *testing.T) {
+	t.Setenv("MISTRAL_API_KEY", "synthetic-key")
+	t.Setenv("MISTRAL_API_BASE_URL", "http://api.example.com/v1")
+	client, _ := CreateClient("Mistral")
+	assert.ErrorContains(t, client.Configure(), "http://api.example.com")
+
+	// The LiteLLM default is http://localhost, so it stays accepted.
+	t.Setenv("LITELLM_API_KEY", "synthetic-key")
+	t.Setenv("LITELLM_API_BASE_URL", "")
+	client, _ = CreateClient("LiteLLM")
+	assert.NoError(t, client.Configure())
+}
+
+func TestListModelsWithModelsURLHonorsContextCancellation(t *testing.T) {
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done():
+		case <-release:
+		}
+	}))
+	t.Cleanup(func() {
+		close(release)
+		server.Close()
+	})
+
+	client := NewClient(ProviderConfig{Name: "CtxTest", BaseURL: server.URL, ModelsURL: server.URL})
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(50*time.Millisecond, cancel)
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := client.ListModels(ctx)
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		assert.Error(t, err)
+	case <-time.After(3 * time.Second):
+		t.Fatal("ListModels ignored the cancelled context")
 	}
 }

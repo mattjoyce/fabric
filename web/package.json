@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "postinstall": "svelte-kit sync",
-    "prebuild": "mkdir -p static/data && cp ../scripts/pattern_descriptions/pattern_descriptions.json static/data/",
-    "predev": "mkdir -p static/data && cp ../scripts/pattern_descriptions/pattern_descriptions.json static/data/",
+    "prebuild": "node -e \"require('fs').cpSync('../scripts/pattern_descriptions/pattern_descriptions.json', 'static/data/pattern_descriptions.json')\"",
+    "predev": "node -e \"require('fs').cpSync('../scripts/pattern_descriptions/pattern_descriptions.json', 'static/data/pattern_descriptions.json')\"",
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
@@ -50,7 +50,7 @@
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.70.1",
-    "vite": "^8.3.1",
+    "vite": "^8.3.5",
     "vitest": "^4.1.11"
   },
   "type": "module",
