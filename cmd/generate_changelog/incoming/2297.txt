@@ -1,4 +1,4 @@
-### PR [#2297](https://github.com/danielmiessler/Fabric/pull/2297) by [pcbeingused333](https://github.com/pcbeingused333): fix(claude): omit temperature and top_p for Claude models that reject them on Bedrock gateway and Vertex AI
+### PR [#2297](https://github.com/danielmiessler/Fabric/pull/2297) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(claude): omit temperature and top_p for Claude models that reject them on Bedrock gateway and Vertex AI
 
 - Fixed Claude requests by omitting `temperature` and `top_p` for models that reject them on the Bedrock gateway and Vertex AI.
 - Centralized Claude sampling parameter logic so it is shared across the Anthropic and Vertex AI integrations.
