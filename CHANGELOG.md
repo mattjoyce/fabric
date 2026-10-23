@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.4.544 (2026-10-23)
+
+### PR [#2295](https://github.com/danielmiessler/Fabric/pull/2295) by [ricardasbitinas-jpg](https://github.com/ricardasbitinas-jpg): feat(providers): add Hostinger Router as an OpenAI-compatible provider
+
+- Added Hostinger Router as an OpenAI-compatible provider with base URL `https://router.hostinger.com/v1`.
+- The API key is read from `HOSTINGER_ROUTER_API_KEY`.
+- Added a `TestCreateClient` case for the new provider.
+- Listed Hostinger Router in the English, Chinese and Arabic READMEs.
+
 ## v1.4.543 (2026-10-23)
 
 ### PR [#2297](https://github.com/danielmiessler/Fabric/pull/2297) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(claude): omit temperature and top_p for Claude models that reject them on Bedrock gateway and Vertex AI
