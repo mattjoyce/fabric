@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.4.545 (2026-10-23)
+
+### PR [#2287](https://github.com/danielmiessler/Fabric/pull/2287) by [pcbeingused333](https://github.com/pcbeingused333): fix(fsdb): make existing session and context folders and files private
+
+- Fixed session and context storage permissions so that configuration now strips group and other permission bits from the sessions and contexts folders, as well as the files within them.
+- Addressed a privacy issue in which histories saved by earlier versions with 0755 and 0644 modes remained readable by other users, since Save preserves the mode of an existing file.
+- Ensured permissions are never widened and that symlinks are left untouched during the update.
+
 ## v1.4.544 (2026-10-23)
 
 ### PR [#2295](https://github.com/danielmiessler/Fabric/pull/2295) by [ricardasbitinas-jpg](https://github.com/ricardasbitinas-jpg): feat(providers): add Hostinger Router as an OpenAI-compatible provider
