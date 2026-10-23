@@ -373,6 +373,7 @@ Fabric 支持广泛的 AI 供应商：
 - Eden AI
 - GrokAI
 - Groq
+- Hostinger Router
 - Langdock
 - LiteLLM
 - MiniMax
