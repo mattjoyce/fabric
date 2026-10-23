@@ -747,3 +747,31 @@ func TestOllamaChat_Responses(t *testing.T) {
 		})
 	}
 }
+
+// Without stream, a response larger than MaxResponseBytes gets 502. With
+// stream, the server does not keep the response, thus no limit applies.
+func TestOllamaChat_ResponseLimit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	defer func(old int) { MaxResponseBytes = old }(MaxResponseBytes)
+	MaxResponseBytes = 4
+
+	upstream := gin.New()
+	upstream.POST("/chat", func(c *gin.Context) {
+		fmt.Fprint(c.Writer, "data: {\"type\":\"content\",\"content\":\"hel\"}\n\ndata: {\"type\":\"content\",\"content\":\"lo\"}\n\n")
+	})
+	server := httptest.NewServer(upstream)
+	defer server.Close()
+	r := gin.New()
+	r.POST("/api/chat", APIConvert{addr: &server.URL}.ollamaChat)
+
+	for body, want := range map[string]int{
+		`{"model":"p","messages":[{"role":"user","content":"hi"}]}`:               http.StatusBadGateway,
+		`{"model":"p","stream":true,"messages":[{"role":"user","content":"hi"}]}`: http.StatusOK,
+	} {
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/chat", strings.NewReader(body)))
+		if w.Code != want {
+			t.Errorf("%s: got %d, want %d: %s", body, w.Code, want, w.Body)
+		}
+	}
+}

@@ -22,3 +22,13 @@ type UsageMetadata struct {
 	OutputTokens int `json:"output_tokens"`
 	TotalTokens  int `json:"total_tokens"`
 }
+
+// ProviderError is an error that an AI provider sent. Its text can repeat
+// the prompt or other private content.
+type ProviderError struct {
+	Err error
+}
+
+func (e *ProviderError) Error() string { return e.Err.Error() }
+
+func (e *ProviderError) Unwrap() error { return e.Err }

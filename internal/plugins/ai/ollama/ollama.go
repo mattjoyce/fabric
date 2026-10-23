@@ -1,8 +1,11 @@
 package ollama
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -18,7 +21,6 @@ import (
 	debuglog "github.com/danielmiessler/fabric/internal/log"
 	"github.com/danielmiessler/fabric/internal/plugins"
 	"github.com/danielmiessler/fabric/internal/util"
-	ollamaapi "github.com/ollama/ollama/api"
 )
 
 const defaultBaseUrl = "http://localhost:11434"
@@ -46,7 +48,6 @@ type Client struct {
 	ApiUrl         *plugins.SetupQuestion
 	ApiKey         *plugins.SetupQuestion
 	apiUrl         *url.URL
-	client         *ollamaapi.Client
 	ApiHttpTimeout *plugins.SetupQuestion
 	httpClient     *http.Client
 }
@@ -98,18 +99,121 @@ func (o *Client) configure() (err error) {
 	}
 
 	o.httpClient = &http.Client{Timeout: timeout, Transport: &transport_sec{underlyingTransport: http.DefaultTransport, ApiKey: o.ApiKey}}
-	o.client = ollamaapi.NewClient(o.apiUrl, o.httpClient)
 
 	return
 }
 
-func (o *Client) ListModels(ctx context.Context) (ret []string, err error) {
-	var listResp *ollamaapi.ListResponse
-	if listResp, err = o.client.List(ctx); err != nil {
+// The types below are the parts of the Ollama API that Fabric uses. Fabric
+// does not import github.com/ollama/ollama/api, because govulncheck reports
+// all Ollama server advisories against each package of that module.
+type ollamaMessage struct {
+	Role    string   `json:"role"`
+	Content string   `json:"content"`
+	Images  [][]byte `json:"images,omitempty"`
+}
+
+type ollamaChatRequest struct {
+	Model    string          `json:"model"`
+	Messages []ollamaMessage `json:"messages"`
+	Stream   *bool           `json:"stream,omitempty"`
+	Options  map[string]any  `json:"options,omitempty"`
+	Think    *bool           `json:"think,omitempty"`
+}
+
+type ollamaChatResponse struct {
+	Message         ollamaMessage `json:"message"`
+	Done            bool          `json:"done"`
+	PromptEvalCount int           `json:"prompt_eval_count"`
+	EvalCount       int           `json:"eval_count"`
+	Error           string        `json:"error"`
+}
+
+// maxResponseLineSize is the maximum size of one JSON line from the Ollama server.
+const maxResponseLineSize = 8 << 20
+
+// StatusError is an error status from the Ollama server.
+type StatusError struct {
+	StatusCode int
+	Message    string
+}
+
+func (e *StatusError) Error() string {
+	return fmt.Sprintf("ollama: status %d: %s", e.StatusCode, e.Message)
+}
+
+// do sends a request to path on the Ollama server. It returns a
+// *StatusError when the status is 400 or more.
+func (o *Client) do(ctx context.Context, method, path string, data any) (resp *http.Response, err error) {
+	var body io.Reader
+	if data != nil {
+		var b []byte
+		if b, err = json.Marshal(data); err != nil {
+			return
+		}
+		body = bytes.NewReader(b)
+	}
+	var req *http.Request
+	if req, err = http.NewRequestWithContext(ctx, method, o.apiUrl.JoinPath(path).String(), body); err != nil {
 		return
 	}
+	req.Header.Set("Content-Type", "application/json")
+	if resp, err = o.httpClient.Do(req); err != nil {
+		return
+	}
+	if resp.StatusCode >= http.StatusBadRequest {
+		defer resp.Body.Close()
+		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+		var errBody struct {
+			Error string `json:"error"`
+		}
+		if json.Unmarshal(msg, &errBody) == nil && errBody.Error != "" {
+			msg = []byte(errBody.Error)
+		}
+		return nil, &StatusError{StatusCode: resp.StatusCode, Message: strings.TrimSpace(string(msg))}
+	}
+	return
+}
 
-	for _, mod := range listResp.Models {
+// chat sends req to /api/chat and calls fn for each JSON line of the
+// response. A response with stream off has one line.
+func (o *Client) chat(ctx context.Context, req *ollamaChatRequest, fn func(ollamaChatResponse)) (err error) {
+	var resp *http.Response
+	if resp, err = o.do(ctx, http.MethodPost, "api/chat", req); err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	scanner := bufio.NewScanner(resp.Body)
+	scanner.Buffer(nil, maxResponseLineSize)
+	for scanner.Scan() {
+		var line ollamaChatResponse
+		if err = json.Unmarshal(scanner.Bytes(), &line); err != nil {
+			return
+		}
+		if line.Error != "" {
+			return errors.New(line.Error)
+		}
+		fn(line)
+	}
+	return scanner.Err()
+}
+
+func (o *Client) ListModels(ctx context.Context) (ret []string, err error) {
+	var resp *http.Response
+	if resp, err = o.do(ctx, http.MethodGet, "api/tags", nil); err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	var list struct {
+		Models []struct {
+			Model string `json:"model"`
+		} `json:"models"`
+	}
+	if err = json.NewDecoder(resp.Body).Decode(&list); err != nil {
+		return
+	}
+	for _, mod := range list.Models {
 		ret = append(ret, mod.Model)
 	}
 	return
@@ -118,12 +222,12 @@ func (o *Client) ListModels(ctx context.Context) (ret []string, err error) {
 func (o *Client) SendStream(ctx context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions, channel chan domain.StreamUpdate) (err error) {
 	defer close(channel)
 
-	var req ollamaapi.ChatRequest
+	var req ollamaChatRequest
 	if req, err = o.createChatRequest(ctx, msgs, opts); err != nil {
 		return
 	}
 
-	respFunc := func(resp ollamaapi.ChatResponse) (streamErr error) {
+	respFunc := func(resp ollamaChatResponse) {
 		channel <- domain.StreamUpdate{
 			Type:    domain.StreamTypeContent,
 			Content: resp.Message.Content,
@@ -139,37 +243,27 @@ func (o *Client) SendStream(ctx context.Context, msgs []*chat.ChatCompletionMess
 				},
 			}
 		}
-		return
 	}
 
-	if err = o.client.Chat(ctx, &req, respFunc); err != nil {
-		return
-	}
-
-	return
+	return o.chat(ctx, &req, respFunc)
 }
 
 func (o *Client) Send(ctx context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions) (ret string, err error) {
 	bf := false
 
-	var req ollamaapi.ChatRequest
+	var req ollamaChatRequest
 	if req, err = o.createChatRequest(ctx, msgs, opts); err != nil {
 		return
 	}
 	req.Stream = &bf
 
-	respFunc := func(resp ollamaapi.ChatResponse) (streamErr error) {
-		ret = resp.Message.Content
-		return
-	}
-
-	if err = o.client.Chat(ctx, &req, respFunc); err != nil {
+	if err = o.chat(ctx, &req, func(resp ollamaChatResponse) { ret = resp.Message.Content }); err != nil {
 		debuglog.Debug(debuglog.Basic, "%s\n", fmt.Sprintf(i18n.T("ollama_chat_request_failed"), err))
 	}
 	return
 }
 
-func (o *Client) createChatRequest(ctx context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions) (ret ollamaapi.ChatRequest, err error) {
+func (o *Client) createChatRequest(ctx context.Context, msgs []*chat.ChatCompletionMessage, opts *domain.ChatOptions) (ret ollamaChatRequest, err error) {
 	// Some models, for example qwen3-coder and deepseek, return an empty response
 	// when the only message is a system message. Send it as a user message instead.
 	if len(msgs) == 1 && msgs[0].Role == chat.ChatMessageRoleSystem {
@@ -178,7 +272,7 @@ func (o *Client) createChatRequest(ctx context.Context, msgs []*chat.ChatComplet
 		msgs = []*chat.ChatCompletionMessage{&copy}
 	}
 
-	messages := make([]ollamaapi.Message, len(msgs))
+	messages := make([]ollamaMessage, len(msgs))
 	for i, message := range msgs {
 		if messages[i], err = o.convertMessage(ctx, message); err != nil {
 			return
@@ -196,7 +290,7 @@ func (o *Client) createChatRequest(ctx context.Context, msgs []*chat.ChatComplet
 		options["num_ctx"] = opts.ModelContextLength
 	}
 
-	ret = ollamaapi.ChatRequest{
+	ret = ollamaChatRequest{
 		Model:    opts.Model,
 		Messages: messages,
 		Options:  options,
@@ -204,16 +298,16 @@ func (o *Client) createChatRequest(ctx context.Context, msgs []*chat.ChatComplet
 
 	switch opts.Thinking {
 	case domain.ThinkingOff:
-		ret.Think = &ollamaapi.ThinkValue{Value: false}
+		ret.Think = new(false)
 	case domain.ThinkingLow, domain.ThinkingMedium, domain.ThinkingHigh:
-		ret.Think = &ollamaapi.ThinkValue{Value: true}
+		ret.Think = new(true)
 	}
 
 	return
 }
 
-func (o *Client) convertMessage(ctx context.Context, message *chat.ChatCompletionMessage) (ret ollamaapi.Message, err error) {
-	ret = ollamaapi.Message{Role: message.Role, Content: message.Content}
+func (o *Client) convertMessage(ctx context.Context, message *chat.ChatCompletionMessage) (ret ollamaMessage, err error) {
+	ret = ollamaMessage{Role: message.Role, Content: message.Content}
 
 	if len(message.MultiContent) == 0 {
 		return
@@ -238,7 +332,7 @@ func (o *Client) convertMessage(ctx context.Context, message *chat.ChatCompletio
 			if img, err = o.loadImageBytes(ctx, part.ImageURL.URL); err != nil {
 				return
 			}
-			ret.Images = append(ret.Images, ollamaapi.ImageData(img))
+			ret.Images = append(ret.Images, img)
 		}
 	}
 

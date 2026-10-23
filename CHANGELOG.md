@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.4.551 (2026-10-23)
+
+### PR [#2308](https://github.com/danielmiessler/Fabric/pull/2308) by [ksylvan](https://github.com/ksylvan): fix: honor caller context in AI vendor plugins
+
+- Fixed caller context cancellation handling across all AI providers.
+- Propagated caller contexts through streaming requests for every AI provider.
+- Honored cancellation during model discovery and credential lookup.
+- Passed caller contexts to Abacus model catalog requests.
+- Added regression tests covering cancellation and deadline handling.
+
+## v1.4.550 (2026-10-23)
+
+### PR [#2299](https://github.com/danielmiessler/Fabric/pull/2299) by [ksylvan](https://github.com/ksylvan): fix: protect provider error details and bound response memory usage
+
+- Redacted private provider error details in responses unless debug mode is enabled, preventing sensitive information leaks.
+- Capped non-streaming model responses at 50 MiB and stopped retaining streaming response content in server memory to bound resource usage.
+- Replaced the Ollama SDK with direct HTTP requests and removed the unused Ollama dependencies from the Go and Nix manifests.
+- Added auditing for storage and configuration changes without logging sensitive request bodies.
+- Documented authentication throttling, access scope, limits, and audit events, and added tests covering redaction, auditing, response limits, and compatibility.
+
 ## v1.4.549 (2026-10-23)
 
 ### PR [#2292](https://github.com/danielmiessler/Fabric/pull/2292) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(openai): return the error of a failed Responses API stream
