@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.4.543 (2026-10-23)
+
+### PR [#2297](https://github.com/danielmiessler/Fabric/pull/2297) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(claude): omit temperature and top_p for Claude models that reject them on Bedrock gateway and Vertex AI
+
+- Fixed Claude requests by omitting `temperature` and `top_p` for models that reject them on the Bedrock gateway and Vertex AI.
+- Centralized Claude sampling parameter logic so it is shared across the Anthropic and Vertex AI integrations.
+- Preserved per-model restrictions and the mutually exclusive handling of sampling parameters.
+- Moved sampling tests into the shared Anthropic package for consistent coverage.
+- Added the corresponding changelog entry for this change.
+
+## v1.4.542 (2026-10-23)
+
+### PR [#2298](https://github.com/danielmiessler/Fabric/pull/2298) by [pcbeingused333](https://github.com/pcbeingused333): fix: drop retired Bedrock and Vertex AI models from the Azure AI Gateway lists
+
+- Removed retired Bedrock and Vertex AI models from the Azure AI Gateway model lists.
+
+## v1.4.541 (2026-10-22)
+
+### PR [#2286](https://github.com/danielmiessler/Fabric/pull/2286) by [pcbeingused333](https://github.com/pcbeingused333) and [ksyvan](https://github.com/ksyvan): fix(server): log request values quoted and upstream error bodies cut
+
+- Fixed log injection in the chat handler by logging the request language with `%q` instead of `%s`, preventing clients from forging log entries with line breaks.
+- Quoted and truncated upstream error response bodies in the Ollama chat handler to 512 bytes, so echoed prompts no longer land in the log in full (part of #2256, S05).
+- Refactored server log tests to use split iterators instead of slice-based string splitting, while preserving the checks that guard against forged log lines.
+
+## v1.4.540 (2026-10-21)
+
+### PR [#2285](https://github.com/danielmiessler/Fabric/pull/2285) by [pcbeingused333](https://github.com/pcbeingused333): fix(bedrock): emit usage after MessageStop and return mid-stream errors
+
+- Report the token usage of a Bedrock stream and return the error that ends it instead of a cut-off answer.
+
 ## v1.4.539 (2026-10-22)
 
 ### PR [#2283](https://github.com/danielmiessler/Fabric/pull/2283) by [pcbeingused333](https://github.com/pcbeingused333) and [ksylvan](https://github.com/ksylvan): fix(server): set nosniff and no-store on every API response

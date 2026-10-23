@@ -90,7 +90,7 @@ func (h *ChatHandler) HandleChat(c *gin.Context) {
 		}
 	}
 
-	log.Printf("Received chat request - Language: '%s', Prompts: %d", request.Language, len(request.Prompts))
+	log.Printf("Received chat request - Language: %q, Prompts: %d", request.Language, len(request.Prompts))
 
 	// Set headers for SSE
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
