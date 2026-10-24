@@ -93,6 +93,11 @@ func TestCreateClient(t *testing.T) {
 			exists:   true,
 		},
 		{
+			name:     "Existing provider - Runcrate",
+			provider: "Runcrate",
+			exists:   true,
+		},
+		{
 			name:     "Existing provider - TrustedRouter",
 			provider: "TrustedRouter",
 			exists:   true,

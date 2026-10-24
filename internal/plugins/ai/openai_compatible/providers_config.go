@@ -412,6 +412,11 @@ var ProviderMap = map[string]ProviderConfig{
 		BaseURL:             "https://router.requesty.ai/v1",
 		ImplementsResponses: false,
 	},
+	"Runcrate": {
+		Name:                "Runcrate",
+		BaseURL:             "https://api.runcrate.ai/v1",
+		ImplementsResponses: false,
+	},
 	"SiliconCloud": {
 		Name:                "SiliconCloud",
 		BaseURL:             "https://api.siliconflow.cn/v1",
