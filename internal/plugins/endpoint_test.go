@@ -64,7 +64,7 @@ func TestRequireSecureBaseURLAllowInsecureLAN(t *testing.T) {
 	}
 
 	// An allowlist only relaxes the hosts it names.
-	t.Setenv("FABRIC_ALLOW_INSECURE_LAN", "192.168.20.x, *.ts.net")
+	t.Setenv("FABRIC_ALLOW_INSECURE_LAN", "192.168.20.0/24, *.ts.net")
 	scopedOK := []string{
 		"http://192.168.20.4:11440/v1",           // in 192.168.20.0/24
 		"http://192.168.20.250/v1",               // in 192.168.20.0/24
@@ -72,7 +72,7 @@ func TestRequireSecureBaseURLAllowInsecureLAN(t *testing.T) {
 	}
 	for _, raw := range scopedOK {
 		if err := RequireSecureBaseURL(raw); err != nil {
-			t.Errorf("allowlist %q: RequireSecureBaseURL(%q) = %v, want nil", "192.168.20.x,*.ts.net", raw, err)
+			t.Errorf("allowlist %q: RequireSecureBaseURL(%q) = %v, want nil", "192.168.20.0/24,*.ts.net", raw, err)
 		}
 	}
 	scopedBad := []string{
@@ -83,7 +83,7 @@ func TestRequireSecureBaseURLAllowInsecureLAN(t *testing.T) {
 	}
 	for _, raw := range scopedBad {
 		if err := RequireSecureBaseURL(raw); err == nil {
-			t.Errorf("allowlist %q: RequireSecureBaseURL(%q) = nil, want an error", "192.168.20.x,*.ts.net", raw)
+			t.Errorf("allowlist %q: RequireSecureBaseURL(%q) = nil, want an error", "192.168.20.0/24,*.ts.net", raw)
 		}
 	}
 
