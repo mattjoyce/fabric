@@ -1,0 +1,4 @@
+### PR [#2310](https://github.com/danielmiessler/Fabric/pull/2310) by [mattjoyce](https://github.com/mattjoyce): feat: opt-in allowlist for plaintext http to private/LAN model servers
+
+- Add `FABRIC_ALLOW_INSECURE_LAN`, an opt-in operator allowlist that permits plaintext `http` to explicitly named private/LAN/tailnet model servers. Entries may be an exact IP, a CIDR, a trailing-wildcard IPv4 glob (`192.168.20.x`), a hostname suffix (`*.ts.net`), or the keyword `lan`/`private`.
+- Secure-by-default is unchanged: unset matches nothing, and a public host is still refused even when the variable is set. The check inspects the URL host only and never resolves names.
