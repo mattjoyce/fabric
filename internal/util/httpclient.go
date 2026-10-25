@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode"
 
 	"github.com/danielmiessler/fabric/internal/i18n"
 )
@@ -119,4 +120,85 @@ func IsLoopbackHost(host string) bool {
 	}
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
+}
+
+// privateLANSuffixes are DNS suffixes that only ever name hosts on a private
+// network: mDNS (.local), tailscale MagicDNS (.ts.net), and the common
+// private-use suffixes. A name under one of these cannot resolve to a public
+// host, so plaintext http to it carries the same risk profile as a LAN IP.
+var privateLANSuffixes = []string{".local", ".ts.net", ".lan", ".internal", ".home.arpa"}
+
+// cgnat is 100.64.0.0/10, which tailscale uses. net.IP.IsPrivate does not
+// include it.
+var cgnat = netip.MustParsePrefix("100.64.0.0/10")
+
+// isPrivateLANHost tells if host is a private / LAN destination: a loopback,
+// RFC1918, CGNAT, link-local or IPv6 ULA address, or a hostname under a
+// private-use DNS suffix. It does not resolve names. The host must be
+// lowercase, with no port, no IPv6 brackets and no trailing dot.
+func isPrivateLANHost(host string) bool {
+	if addr, err := netip.ParseAddr(host); err == nil {
+		addr = addr.Unmap()
+		return addr.IsLoopback() || addr.IsPrivate() || addr.IsLinkLocalUnicast() || cgnat.Contains(addr)
+	}
+	if IsLoopbackHost(host) {
+		return true
+	}
+	for _, suffix := range privateLANSuffixes {
+		if strings.HasSuffix(host, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+// HostAllowedForInsecureHTTP tells if an operator-supplied allowlist (the
+// FABRIC_ALLOW_INSECURE_LAN value) permits plaintext http to host. The spec
+// is a list of entries with comma or whitespace separators. An empty spec
+// matches nothing. The host has no port and no IPv6 brackets. Entry forms:
+//
+//	192.168.20.4      exact IP
+//	192.168.20.0/24   CIDR (IPv4 or IPv6)
+//	b450.ts.net       exact hostname
+//	*.ts.net          hostname suffix (also ".ts.net")
+//	lan               any private / LAN / tailnet host
+func HostAllowedForInsecureHTTP(host, spec string) bool {
+	host = strings.ToLower(strings.TrimSuffix(host, "."))
+	if host == "" {
+		return false
+	}
+	hostIP := net.ParseIP(host)
+	entries := strings.FieldsFunc(strings.ToLower(spec), func(r rune) bool {
+		return r == ',' || unicode.IsSpace(r)
+	})
+	for _, entry := range entries {
+		if entry == "lan" {
+			if isPrivateLANHost(host) {
+				return true
+			}
+			continue
+		}
+		if _, ipnet, err := net.ParseCIDR(entry); err == nil {
+			if hostIP != nil && ipnet.Contains(hostIP) {
+				return true
+			}
+			continue
+		}
+		if entry = strings.TrimPrefix(entry, "*"); strings.HasPrefix(entry, ".") {
+			if host == entry[1:] || strings.HasSuffix(host, entry) {
+				return true
+			}
+			continue
+		}
+		if ip := net.ParseIP(entry); ip != nil {
+			if hostIP != nil && ip.Equal(hostIP) {
+				return true
+			}
+			continue
+		}
+		if host == entry {
+			return true
+		}
+	}
+	return false
 }

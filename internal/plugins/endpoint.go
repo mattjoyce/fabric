@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/danielmiessler/fabric/internal/i18n"
@@ -28,6 +29,11 @@ func RequireSecureBaseURL(rawURL string) error {
 		return nil
 	case "http":
 		if util.IsLoopbackHost(parsed.Hostname()) {
+			return nil
+		}
+		// Operator opt-in: FABRIC_ALLOW_INSECURE_LAN lists the private hosts
+		// that may use plain http. Unset matches nothing.
+		if util.HostAllowedForInsecureHTTP(parsed.Hostname(), os.Getenv("FABRIC_ALLOW_INSECURE_LAN")) {
 			return nil
 		}
 	}
