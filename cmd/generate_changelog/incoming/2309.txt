@@ -1,3 +1,0 @@
-### PR [#2309](https://github.com/danielmiessler/Fabric/pull/2309) by [heydryft](https://github.com/heydryft): feat: add Runcrate as an OpenAI-compatible provider
-
-- Feat: add Runcrate as an OpenAI-compatible provider

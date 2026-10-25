@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.4.555 (2026-10-25)
+
+### PR [#2309](https://github.com/danielmiessler/Fabric/pull/2309) by [heydryft](https://github.com/heydryft): feat: add Runcrate as an OpenAI-compatible provider
+
+- Feat: add Runcrate as an OpenAI-compatible provider
+
 ## v1.4.554 (2026-10-25)
 
 ### PR [#2310](https://github.com/danielmiessler/Fabric/pull/2310) by [mattjoyce](https://github.com/mattjoyce) and [ksylvan](https://github.com/ksylvan): feat: opt-in allowlist for plaintext http to private/LAN model servers
