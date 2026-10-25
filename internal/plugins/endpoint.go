@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/danielmiessler/fabric/internal/i18n"
@@ -28,6 +29,17 @@ func RequireSecureBaseURL(rawURL string) error {
 		return nil
 	case "http":
 		if util.IsLoopbackHost(parsed.Hostname()) {
+			return nil
+		}
+		// Opt-in escape hatch for a private model server: FABRIC_ALLOW_INSECURE_LAN
+		// is an operator-supplied allowlist of destinations for which plaintext
+		// http is accepted, e.g. "192.168.20.0/24", "192.168.20.x", "*.ts.net",
+		// or the keyword "lan" for any private/LAN/tailnet host. The intended
+		// use is a model server whose hop is already protected by a private
+		// network or WireGuard that this URL-only check cannot see. Unset or
+		// empty matches nothing, so secure-by-default holds, and only the named
+		// hosts are relaxed, not remote http in general.
+		if util.HostAllowedForInsecureHTTP(parsed.Hostname(), os.Getenv("FABRIC_ALLOW_INSECURE_LAN")) {
 			return nil
 		}
 	}
