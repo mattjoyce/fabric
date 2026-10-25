@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.4.554 (2026-10-25)
+
+### PR [#2310](https://github.com/danielmiessler/Fabric/pull/2310) by [mattjoyce](https://github.com/mattjoyce) and [ksylvan](https://github.com/ksylvan): feat: opt-in allowlist for plaintext http to private/LAN model servers
+
+- Add `FABRIC_ALLOW_INSECURE_LAN`, an opt-in allowlist of hosts that can use plaintext `http`. Use it for a model server on a private network, LAN, or tailnet. Separate entries with commas or spaces. An entry can be an exact IP, a CIDR (`192.168.20.0/24`), an exact hostname, a hostname suffix (`*.ts.net`), or the keyword `lan`.
+- The `lan` keyword matches private, CGNAT, link-local, and ULA addresses, and hostnames that end in `.local`, `.ts.net`, `.lan`, `.internal`, or `.home.arpa`. It never matches a public address.
+- The default does not change. When the variable is unset or empty, it matches nothing. The check reads only the host in the URL and does not resolve names.
+
 ## v1.4.553 (2026-10-23)
 
 ### PR [#2306](https://github.com/danielmiessler/Fabric/pull/2306) by [pcbeingused333](https://github.com/pcbeingused333): fix(anthropic): don't send thinking.type=disabled to models that reject it
